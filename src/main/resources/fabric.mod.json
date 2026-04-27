@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "pathdlc_digger",
+  "version": "${version}",
+  "name": "PathDLC Baritone Digger",
+  "description": "Client-side area digger and fill shell planner for Fabric 1.21.4, designed to work with Baritone installed separately.",
+  "authors": [
+    "PathDLC"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.pathdlc.digger.PathDlcDiggerClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

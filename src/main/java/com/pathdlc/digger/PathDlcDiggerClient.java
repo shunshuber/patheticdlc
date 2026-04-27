@@ -1,0 +1,64 @@
+package com.pathdlc.digger;
+
+import com.pathdlc.digger.baritone.BaritoneBridge;
+import com.pathdlc.digger.bot.DiggerBot;
+import com.pathdlc.digger.clan.ClanCommandHandler;
+import com.pathdlc.digger.clan.ClanRedstoneBot;
+import com.pathdlc.digger.command.DotCommandHandler;
+import com.pathdlc.digger.farm.FarmCommandHandler;
+import com.pathdlc.digger.farm.FarmManager;
+import com.pathdlc.digger.render.SelectionRenderer;
+import com.pathdlc.digger.selection.SelectionManager;
+import com.pathdlc.digger.util.Chat;
+import com.pathdlc.digger.warden.AutoWardenBot;
+import com.pathdlc.digger.warden.WardenCommandHandler;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+public class PathDlcDiggerClient implements ClientModInitializer {
+    public static final String MOD_ID = "pathdlc_digger";
+    public static final String NAME = "PathDLC Digger";
+
+    private static final SelectionManager SELECTION = new SelectionManager();
+    private static final BaritoneBridge BARITONE = new BaritoneBridge();
+
+    private static final DiggerBot DIGGER = new DiggerBot(SELECTION, BARITONE);
+    private static final FarmManager FARMS = new FarmManager(BARITONE);
+    private static final ClanRedstoneBot CLAN = new ClanRedstoneBot();
+    private static final AutoWardenBot WARDEN = new AutoWardenBot(BARITONE);
+
+    private static final DotCommandHandler COMMANDS = new DotCommandHandler(SELECTION, DIGGER, BARITONE);
+    private static final FarmCommandHandler FARM_COMMANDS = new FarmCommandHandler(FARMS);
+    private static final ClanCommandHandler CLAN_COMMANDS = new ClanCommandHandler(CLAN);
+    private static final WardenCommandHandler WARDEN_COMMANDS = new WardenCommandHandler(WARDEN);
+
+    @Override
+    public void onInitializeClient() {
+        ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
+            if (!message.startsWith(".")) {
+                return true;
+            }
+
+            boolean handled = WARDEN_COMMANDS.handle(message)
+                    || CLAN_COMMANDS.handle(message)
+                    || FARM_COMMANDS.handle(message)
+                    || COMMANDS.handle(message);
+
+            return !handled;
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            DIGGER.tick(client);
+            FARMS.tick(client);
+            CLAN.tick(client);
+            WARDEN.tick(client);
+        });
+
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> SelectionRenderer.render(context, SELECTION));
+
+        Chat.later("PathDLC loaded. Commands: .pos, .fill, .dig baritone, .apple, .clan, .warden");
+    }
+}
