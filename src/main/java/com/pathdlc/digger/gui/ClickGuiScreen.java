@@ -1,6 +1,5 @@
 package com.pathdlc.digger.gui;
 
-import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -11,19 +10,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ClickGuiScreen extends Screen {
-    private static final int PANEL_WIDTH = 140;
-    private static final int HEADER_HEIGHT = 22;
-    private static final int BUTTON_HEIGHT = 18;
-    private static final int SETTING_HEIGHT = 14;
-    private static final float HEADER_RADIUS = 10f;
-    private static final float BUTTON_RADIUS = 6f;
+    private static final int WIN_WIDTH = 360;
+    private static final int WIN_HEIGHT = 300;
+    private static final int TAB_HEIGHT = 28;
+    private static final int MODULE_HEIGHT = 22;
+    private static final int SETTING_HEIGHT = 16;
+    private static final int PADDING = 8;
+    private static final int SCROLL_SPEED = 10;
+    private static final float CORNER_RADIUS = 8f;
 
     private static final Identifier CUSTOM_FONT =
             Identifier.of("pathdlc_digger", "clickgui");
 
     private final List<Category> categories = new ArrayList<>();
-    private Category draggedCategory;
-    private float dragOffsetX, dragOffsetY;
+    private int selectedTab = 0;
+    private float openProgress = 0f;
+    private int scrollOffset = 0;
 
     private ModuleSetting draggingSlider;
     private float draggingSliderX;
@@ -36,6 +38,8 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        openProgress = 0f;
+        scrollOffset = 0;
     }
 
     public void initCategories(
@@ -45,13 +49,9 @@ public class ClickGuiScreen extends Screen {
             Runnable clanOn, Runnable clanOff) {
         if (!categories.isEmpty()) return;
 
-        float startX = 10;
-        float startY = 30;
-        float spacing = PANEL_WIDTH + 10;
-
         Module apple = new Module("Apple", appleOn, appleOff);
         Module dig = new Module("Dig", digOn, digOff);
-        Category farm = new Category("Farm", startX, startY);
+        Category farm = new Category("Farm", 0, 0);
         farm.addModule(apple);
         farm.addModule(dig);
         categories.add(farm);
@@ -61,26 +61,26 @@ public class ClickGuiScreen extends Screen {
         fog.addSetting(ModuleSetting.choice("Color",
                 new String[]{"White","Light Blue","Purple","Red","Green","Dark","Golden"}, 0));
         fog.addSetting(ModuleSetting.slider("Density", 0.5f, 0.0f, 1.0f, 0.1f));
-        Category world = new Category("World", startX + spacing, startY);
+        Category world = new Category("World", 0, 0);
         world.addModule(warden);
         world.addModule(fog);
         categories.add(world);
 
         Module clan = new Module("Clan", clanOn, clanOff);
-        Module hitEffects = new Module("HitEffects");
-        Module aspectRatio = new Module("AspectRatio");
-        aspectRatio.addSetting(ModuleSetting.slider("FOV Scale", 1.33f, 1.0f, 2.0f, 0.01f));
         Module killAura = new Module("KillAura");
         killAura.addSetting(ModuleSetting.slider("Range", 4.0f, 2.0f, 6.0f, 0.1f));
         killAura.addSetting(ModuleSetting.toggle("Only Crit", false));
         killAura.addSetting(ModuleSetting.toggle("Attack Mobs", true));
         killAura.addSetting(ModuleSetting.toggle("Attack Players", false));
-        Category combat = new Category("Combat", startX + spacing * 2, startY);
+        Category combat = new Category("Combat", 0, 0);
         combat.addModule(clan);
         combat.addModule(killAura);
         categories.add(combat);
 
-        Category utility = new Category("Utility", startX + spacing * 3, startY);
+        Module hitEffects = new Module("HitEffects");
+        Module aspectRatio = new Module("AspectRatio");
+        aspectRatio.addSetting(ModuleSetting.slider("FOV Scale", 1.33f, 1.0f, 2.0f, 0.01f));
+        Category utility = new Category("Utility", 0, 0);
         utility.addModule(hitEffects);
         utility.addModule(aspectRatio);
         categories.add(utility);
@@ -92,7 +92,7 @@ public class ClickGuiScreen extends Screen {
         blockEsp.addSetting(ModuleSetting.slider("Radius", 32f, 8f, 64f, 4f));
         Module motionBlur = new Module("MotionBlur");
         motionBlur.addSetting(ModuleSetting.slider("Strength", 0.5f, 0.1f, 0.9f, 0.05f));
-        Category render = new Category("Render", startX + spacing * 4, startY);
+        Category render = new Category("Render", 0, 0);
         render.addModule(blockOverlay);
         render.addModule(blockEsp);
         render.addModule(motionBlur);
@@ -105,159 +105,212 @@ public class ClickGuiScreen extends Screen {
         }
     }
 
+    private int winX() { return (width - WIN_WIDTH) / 2; }
+    private int winY() { return (height - WIN_HEIGHT) / 2; }
+
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        openProgress += (1f - openProgress) * 0.2f;
+        if (openProgress > 0.99f) openProgress = 1f;
+
+        float scale = 0.85f + 0.15f * openProgress;
+        int alpha = (int)(openProgress * 255);
+        if (alpha < 1) return;
+
+        int wx = winX();
+        int wy = winY();
+
         LiquidGlassRenderer.captureAndBlur();
 
-        for (Category cat : categories) {
-            cat.updateExpandProgress();
+        context.fill(0, 0, width, height, (int)(openProgress * 0x88) << 24);
+
+        if (LiquidGlassRenderer.isReady()) {
+            LiquidGlassRenderer.drawGlassPanel(context,
+                    wx, wy, WIN_WIDTH, WIN_HEIGHT, CORNER_RADIUS, 0f);
+        } else {
+            context.fill(wx, wy, wx + WIN_WIDTH, wy + WIN_HEIGHT, 0xDD0A0A12);
         }
 
-        for (Category cat : categories) {
-            renderCategory(context, cat, mouseX, mouseY);
-        }
+        drawBorder(context, wx, wy, WIN_WIDTH, WIN_HEIGHT, 0x44FFFFFF);
+
+        renderTabs(context, wx, wy, mouseX, mouseY);
+
+        int contentY = wy + TAB_HEIGHT + 2;
+        int contentH = WIN_HEIGHT - TAB_HEIGHT - 2;
+
+        context.enableScissor(wx, contentY, wx + WIN_WIDTH, contentY + contentH);
+        renderModules(context, wx, contentY, mouseX, mouseY);
+        context.disableScissor();
+
+        renderScrollbar(context, wx, contentY, contentH);
 
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private void renderCategory(DrawContext context, Category cat,
-                                  int mouseX, int mouseY) {
-        float catX = cat.x;
-        float catY = cat.y;
+    private void renderTabs(DrawContext context, int wx, int wy,
+                             int mouseX, int mouseY) {
+        GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
+        int tabCount = categories.size();
+        int tabW = WIN_WIDTH / tabCount;
+
+        for (int i = 0; i < tabCount; i++) {
+            int tx = wx + i * tabW;
+            boolean hovered = mouseX >= tx && mouseX < tx + tabW
+                    && mouseY >= wy && mouseY < wy + TAB_HEIGHT;
+            boolean active = i == selectedTab;
+
+            if (hovered && !active) {
+                context.fill(tx, wy, tx + tabW, wy + TAB_HEIGHT, 0x15FFFFFF);
+            }
+
+            String name = categories.get(i).getName();
+            int textW = textRenderer.getWidth(styledText(name));
+            int textX = tx + tabW / 2 - textW / 2;
+            int textY = wy + TAB_HEIGHT / 2 - 4;
+
+            int color = active ? accent.textColor : (hovered ? 0xFFDDDDDD : 0xFF888888);
+            drawStyledText(context, name, textX, textY, color);
+
+            if (active) {
+                context.fill(tx + 4, wy + TAB_HEIGHT - 2,
+                        tx + tabW - 4, wy + TAB_HEIGHT, accent.textColor);
+            }
+        }
+
+        context.fill(wx, wy + TAB_HEIGHT, wx + WIN_WIDTH,
+                wy + TAB_HEIGHT + 1, 0x33FFFFFF);
+    }
+
+    private void renderModules(DrawContext context, int wx, int contentY,
+                                int mouseX, int mouseY) {
+        if (selectedTab < 0 || selectedTab >= categories.size()) return;
+        Category cat = categories.get(selectedTab);
         GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
 
-        boolean catHovered = mouseX >= catX && mouseX <= catX + PANEL_WIDTH
-                && mouseY >= catY && mouseY <= catY + HEADER_HEIGHT;
-        cat.hoverAmount += ((catHovered ? 1f : 0f) - cat.hoverAmount) * 0.15f;
+        int y = contentY - scrollOffset + 4;
 
-        drawPanel(context, catX, catY, PANEL_WIDTH, HEADER_HEIGHT,
-                HEADER_RADIUS, cat.hoverAmount, false);
+        for (ModuleButton btn : cat.getModules()) {
+            Module mod = btn.getModule();
 
-        String name = cat.getName();
-        int textWidth = textRenderer.getWidth(styledText(name));
-        drawStyledText(context, name, (int) (catX + PANEL_WIDTH / 2 - textWidth / 2),
-                (int) (catY + 7), 0xFFFFFFFF);
+            boolean hovered = mouseX >= wx + PADDING
+                    && mouseX <= wx + WIN_WIDTH - PADDING
+                    && mouseY >= y && mouseY <= y + MODULE_HEIGHT
+                    && mouseY >= contentY;
+            btn.updateHover(hovered);
 
-        String arrow = cat.isCollapsed() ? ">" : "v";
-        drawStyledText(context, arrow, (int) (catX + PANEL_WIDTH - 14),
-                (int) (catY + 7), 0xFF999999);
+            int bgAlpha = (int)(btn.hoverAmount * 0x22);
+            if (bgAlpha > 0) {
+                context.fill(wx + PADDING, y,
+                        wx + WIN_WIDTH - PADDING, y + MODULE_HEIGHT,
+                        (bgAlpha << 24) | 0xFFFFFF);
+            }
 
-        float ep = cat.getExpandProgress();
-        if (ep > 0.01f) {
-            int lineAlpha = (int) (0x33 * ep);
-            int lineColor = (lineAlpha << 24) | 0xFFFFFF;
-            context.fill((int) catX + 4, (int) (catY + HEADER_HEIGHT),
-                    (int) (catX + PANEL_WIDTH - 4),
-                    (int) (catY + HEADER_HEIGHT + 1), lineColor);
+            int nameColor = mod.isEnabled() ? accent.textColor : 0xFFBBBBBB;
+            drawStyledText(context, mod.getName(), wx + PADDING + 6, y + 7, nameColor);
 
-            float btnY = catY + HEADER_HEIGHT + 1;
-            for (ModuleButton btn : cat.getModules()) {
-                Module mod = btn.getModule();
+            if (mod.isEnabled()) {
+                int dotY = y + MODULE_HEIGHT / 2;
+                context.fill(wx + WIN_WIDTH - PADDING - 14, dotY - 2,
+                        wx + WIN_WIDTH - PADDING - 10, dotY + 2, accent.textColor);
+            }
 
-                boolean btnHovered = ep > 0.5f && mouseX >= catX
-                        && mouseX <= catX + PANEL_WIDTH
-                        && mouseY >= btnY && mouseY <= btnY + BUTTON_HEIGHT;
-                btn.updateHover(btnHovered);
+            if (mod.hasSettings()) {
+                String arrow = mod.isSettingsExpanded() ? "v" : ">";
+                int arrowX = wx + WIN_WIDTH - PADDING - 24;
+                drawStyledText(context, arrow, arrowX, y + 7, 0xFF666666);
+            }
 
-                drawPanel(context, catX, btnY, PANEL_WIDTH, BUTTON_HEIGHT,
-                        BUTTON_RADIUS, btn.hoverAmount, mod.isEnabled());
+            y += MODULE_HEIGHT;
 
-                int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                drawStyledText(context, mod.getName(), (int) (catX + 8),
-                        (int) (btnY + 5), textColor);
-
-                if (mod.hasSettings()) {
-                    String settingsArrow = mod.isSettingsExpanded() ? "v" : ">";
-                    drawStyledText(context, settingsArrow,
-                            (int) (catX + PANEL_WIDTH - 14),
-                            (int) (btnY + 5), 0xFF777777);
-                }
-
-                if (mod.isEnabled()) {
-                    context.fill((int) (catX + PANEL_WIDTH - 5),
-                            (int) (btnY + 5),
-                            (int) (catX + PANEL_WIDTH - 2),
-                            (int) (btnY + BUTTON_HEIGHT - 5), accent.textColor);
-                }
-
-                btnY += BUTTON_HEIGHT;
-
-                if (mod.isSettingsExpanded() && mod.hasSettings()) {
-                    for (ModuleSetting setting : mod.getSettings()) {
-                        renderSetting(context, setting, catX, btnY,
-                                mouseX, mouseY, accent);
-                        btnY += SETTING_HEIGHT;
-                    }
+            if (mod.isSettingsExpanded() && mod.hasSettings()) {
+                for (ModuleSetting setting : mod.getSettings()) {
+                    renderSetting(context, setting, wx, y, mouseX, mouseY,
+                            accent, contentY);
+                    y += SETTING_HEIGHT;
                 }
             }
         }
     }
 
     private void renderSetting(DrawContext context, ModuleSetting setting,
-                                float catX, float y, int mouseX, int mouseY,
-                                GuiSettings.AccentColor accent) {
-        float indent = catX + 6;
-        float w = PANEL_WIDTH - 12;
+                                int wx, int y, int mouseX, int mouseY,
+                                GuiSettings.AccentColor accent, int contentY) {
+        int left = wx + PADDING + 10;
+        int right = wx + WIN_WIDTH - PADDING - 4;
+        int w = right - left;
 
-        context.fill((int) indent, (int) y, (int) (indent + w),
-                (int) (y + SETTING_HEIGHT), 0x22000000);
+        context.fill(left, y, right, y + SETTING_HEIGHT, 0x11FFFFFF);
 
-        drawStyledText(context, setting.getName(),
-                (int) (indent + 4), (int) (y + 3), 0xFFAAAAAA);
+        drawStyledText(context, setting.getName(), left + 4, y + 4, 0xFF999999);
 
         if (setting.getType() == ModuleSetting.Type.SLIDER) {
-            float sliderX = indent + w * 0.5f;
-            float sliderW = w * 0.45f;
-            float sliderY = y + SETTING_HEIGHT / 2f - 2;
+            float sliderX = left + w * 0.5f;
+            float sliderW = w * 0.42f;
+            float sliderY = y + SETTING_HEIGHT / 2f - 1;
             float norm = setting.getNormalized();
 
-            context.fill((int) sliderX, (int) (sliderY + 1),
-                    (int) (sliderX + sliderW), (int) (sliderY + 3), 0x44FFFFFF);
-            context.fill((int) sliderX, (int) (sliderY + 1),
-                    (int) (sliderX + sliderW * norm), (int) (sliderY + 3),
+            context.fill((int) sliderX, (int) sliderY,
+                    (int)(sliderX + sliderW), (int)(sliderY + 2), 0x44FFFFFF);
+            context.fill((int) sliderX, (int) sliderY,
+                    (int)(sliderX + sliderW * norm), (int)(sliderY + 2),
                     accent.textColor);
 
-            int knobX = (int) (sliderX + sliderW * norm);
-            context.fill(knobX - 2, (int) sliderY,
-                    knobX + 2, (int) (sliderY + 4), 0xFFFFFFFF);
+            int knobX = (int)(sliderX + sliderW * norm);
+            context.fill(knobX - 2, (int)(sliderY - 2),
+                    knobX + 2, (int)(sliderY + 4), 0xFFFFFFFF);
 
             String val = setting.getDisplayValue();
             int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val,
-                    (int) (indent + w - valW - 2), (int) (y + 3), 0xFFDDDDDD);
+            drawStyledText(context, val, right - valW - 2, y + 4, 0xFFCCCCCC);
 
         } else if (setting.getType() == ModuleSetting.Type.TOGGLE) {
             String val = setting.getBool() ? "ON" : "OFF";
-            int valColor = setting.getBool() ? accent.textColor : 0xFF666666;
+            int valColor = setting.getBool() ? accent.textColor : 0xFF555555;
             int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val,
-                    (int) (indent + w - valW - 4), (int) (y + 3), valColor);
+            drawStyledText(context, val, right - valW - 4, y + 4, valColor);
 
         } else if (setting.getType() == ModuleSetting.Type.CHOICE) {
             String val = setting.getChoiceValue();
             int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val,
-                    (int) (indent + w - valW - 4), (int) (y + 3), 0xFFDDDDDD);
+            drawStyledText(context, val, right - valW - 4, y + 4, 0xFFCCCCCC);
         }
     }
 
-    // ── Drawing helpers ───────────────────────────────────
+    private void renderScrollbar(DrawContext context, int wx, int contentY,
+                                   int contentH) {
+        int totalH = getTotalContentHeight();
+        if (totalH <= contentH) return;
 
-    private void drawPanel(DrawContext context, float x, float y, float w,
-                            float h, float radius, float hover, boolean active) {
-        GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
-        if (LiquidGlassRenderer.isReady()) {
-            if (active) {
-                LiquidGlassRenderer.drawGlassPanel(context, x, y, w, h, radius,
-                        hover, 0.25f, accent.r, accent.g, accent.b);
-            } else {
-                LiquidGlassRenderer.drawGlassPanel(context, x, y, w, h, radius,
-                        hover);
+        int barX = wx + WIN_WIDTH - 3;
+        float ratio = (float) contentH / totalH;
+        int thumbH = Math.max(10, (int)(contentH * ratio));
+        int thumbY = contentY + (int)((float) scrollOffset / (totalH - contentH)
+                * (contentH - thumbH));
+
+        context.fill(barX, contentY, barX + 2, contentY + contentH, 0x22FFFFFF);
+        context.fill(barX, thumbY, barX + 2, thumbY + thumbH, 0x66FFFFFF);
+    }
+
+    private int getTotalContentHeight() {
+        if (selectedTab < 0 || selectedTab >= categories.size()) return 0;
+        Category cat = categories.get(selectedTab);
+        int h = 8;
+        for (ModuleButton btn : cat.getModules()) {
+            h += MODULE_HEIGHT;
+            Module mod = btn.getModule();
+            if (mod.isSettingsExpanded() && mod.hasSettings()) {
+                h += mod.getSettings().size() * SETTING_HEIGHT;
             }
-        } else {
-            LiquidGlassRenderer.drawFallbackPanel(context, (int) x, (int) y,
-                    (int) w, (int) h, active);
         }
+        return h;
+    }
+
+    private void drawBorder(DrawContext ctx, int x, int y, int w, int h,
+                             int color) {
+        ctx.fill(x, y, x + w, y + 1, color);
+        ctx.fill(x, y + h - 1, x + w, y + h, color);
+        ctx.fill(x, y, x + 1, y + h, color);
+        ctx.fill(x + w - 1, y, x + w, y + h, color);
     }
 
     private Text styledText(String text) {
@@ -273,68 +326,59 @@ public class ClickGuiScreen extends Screen {
         context.drawText(textRenderer, styledText(text), x, y, color, true);
     }
 
-    // ── Input handling ────────────────────────────────────
+    // ── Input ──────────────────────────────────────────────
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            for (Category cat : categories) {
-                float catX = cat.x;
-                float catY = cat.y;
+        int wx = winX();
+        int wy = winY();
 
-                if (mouseX >= catX && mouseX <= catX + PANEL_WIDTH
-                        && mouseY >= catY && mouseY <= catY + HEADER_HEIGHT) {
-                    if (mouseX >= catX + PANEL_WIDTH - 20) {
-                        cat.toggleCollapsed();
-                    } else {
-                        draggedCategory = cat;
-                        dragOffsetX = (float) mouseX - catX;
-                        dragOffsetY = (float) mouseY - catY;
-                    }
-                    return true;
-                }
-
-                if (!cat.isCollapsed()) {
-                    float btnY = catY + HEADER_HEIGHT + 1;
-                    for (ModuleButton btn : cat.getModules()) {
-                        Module mod = btn.getModule();
-
-                        if (mouseX >= catX && mouseX <= catX + PANEL_WIDTH
-                                && mouseY >= btnY && mouseY <= btnY + BUTTON_HEIGHT) {
-                            if (mod.hasSettings()
-                                    && mouseX >= catX + PANEL_WIDTH - 20) {
-                                mod.toggleSettingsExpanded();
-                            } else {
-                                mod.toggle();
-                            }
-                            return true;
-                        }
-                        btnY += BUTTON_HEIGHT;
-
-                        if (mod.isSettingsExpanded() && mod.hasSettings()) {
-                            for (ModuleSetting setting : mod.getSettings()) {
-                                if (mouseX >= catX && mouseX <= catX + PANEL_WIDTH
-                                        && mouseY >= btnY
-                                        && mouseY <= btnY + SETTING_HEIGHT) {
-                                    handleSettingClick(setting, catX, btnY,
-                                            mouseX, mouseY);
-                                    return true;
-                                }
-                                btnY += SETTING_HEIGHT;
-                            }
-                        }
-                    }
-                }
-            }
+        if (mouseX < wx || mouseX > wx + WIN_WIDTH
+                || mouseY < wy || mouseY > wy + WIN_HEIGHT) {
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        if (button == 1) {
-            for (Category cat : categories) {
-                if (mouseX >= cat.x && mouseX <= cat.x + PANEL_WIDTH
-                        && mouseY >= cat.y
-                        && mouseY <= cat.y + HEADER_HEIGHT) {
-                    cat.toggleCollapsed();
+        if (button == 0 && mouseY >= wy && mouseY < wy + TAB_HEIGHT) {
+            int tabW = WIN_WIDTH / categories.size();
+            int clicked = ((int) mouseX - wx) / tabW;
+            if (clicked >= 0 && clicked < categories.size()) {
+                selectedTab = clicked;
+                scrollOffset = 0;
+            }
+            return true;
+        }
+
+        if (button == 0 && selectedTab >= 0 && selectedTab < categories.size()) {
+            Category cat = categories.get(selectedTab);
+            int contentY = wy + TAB_HEIGHT + 2;
+            int y = contentY - scrollOffset + 4;
+
+            for (ModuleButton btn : cat.getModules()) {
+                Module mod = btn.getModule();
+
+                if (mouseX >= wx + PADDING && mouseX <= wx + WIN_WIDTH - PADDING
+                        && mouseY >= y && mouseY < y + MODULE_HEIGHT
+                        && mouseY >= contentY) {
+
+                    if (mod.hasSettings()
+                            && mouseX >= wx + WIN_WIDTH - PADDING - 30) {
+                        mod.toggleSettingsExpanded();
+                    } else {
+                        mod.toggle();
+                    }
                     return true;
+                }
+                y += MODULE_HEIGHT;
+
+                if (mod.isSettingsExpanded() && mod.hasSettings()) {
+                    for (ModuleSetting setting : mod.getSettings()) {
+                        if (mouseY >= y && mouseY < y + SETTING_HEIGHT
+                                && mouseY >= contentY) {
+                            handleSettingClick(setting, wx, y, mouseX);
+                            return true;
+                        }
+                        y += SETTING_HEIGHT;
+                    }
                 }
             }
         }
@@ -342,19 +386,20 @@ public class ClickGuiScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void handleSettingClick(ModuleSetting setting, float catX,
-                                      float y, double mouseX, double mouseY) {
+    private void handleSettingClick(ModuleSetting setting, int wx, int y,
+                                      double mouseX) {
         if (setting.getType() == ModuleSetting.Type.TOGGLE) {
             setting.toggleBool();
         } else if (setting.getType() == ModuleSetting.Type.CHOICE) {
             setting.cycleChoice();
         } else if (setting.getType() == ModuleSetting.Type.SLIDER) {
-            float indent = catX + 6;
-            float w = PANEL_WIDTH - 12;
-            float sliderX = indent + w * 0.5f;
-            float sliderW = w * 0.45f;
+            int left = wx + PADDING + 10;
+            int right = wx + WIN_WIDTH - PADDING - 4;
+            int w = right - left;
+            float sliderX = left + w * 0.5f;
+            float sliderW = w * 0.42f;
 
-            float norm = (float) ((mouseX - sliderX) / sliderW);
+            float norm = (float)((mouseX - sliderX) / sliderW);
             norm = Math.max(0, Math.min(1, norm));
             setting.setFromNormalized(norm);
 
@@ -367,7 +412,6 @@ public class ClickGuiScreen extends Screen {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            draggedCategory = null;
             draggingSlider = null;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -376,18 +420,30 @@ public class ClickGuiScreen extends Screen {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                  double deltaX, double deltaY) {
-        if (button == 0 && draggedCategory != null) {
-            draggedCategory.x = (float) mouseX - dragOffsetX;
-            draggedCategory.y = (float) mouseY - dragOffsetY;
-            return true;
-        }
         if (button == 0 && draggingSlider != null) {
-            float norm = (float) ((mouseX - draggingSliderX) / draggingSliderW);
+            float norm = (float)((mouseX - draggingSliderX) / draggingSliderW);
             norm = Math.max(0, Math.min(1, norm));
             draggingSlider.setFromNormalized(norm);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY,
+                                   double horizontalAmount, double verticalAmount) {
+        int wx = winX();
+        int wy = winY();
+        if (mouseX >= wx && mouseX <= wx + WIN_WIDTH
+                && mouseY >= wy && mouseY <= wy + WIN_HEIGHT) {
+            scrollOffset -= (int)(verticalAmount * SCROLL_SPEED);
+            int contentH = WIN_HEIGHT - TAB_HEIGHT - 2;
+            int totalH = getTotalContentHeight();
+            int maxScroll = Math.max(0, totalH - contentH);
+            scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
     @Override
