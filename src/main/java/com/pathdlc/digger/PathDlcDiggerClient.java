@@ -8,7 +8,6 @@ import com.pathdlc.digger.command.DotCommandHandler;
 import com.pathdlc.digger.farm.FarmCommandHandler;
 import com.pathdlc.digger.farm.FarmManager;
 import com.pathdlc.digger.gui.ClickGuiScreen;
-import com.pathdlc.digger.render.LiquidGlassRenderer;
 import com.pathdlc.digger.render.SelectionRenderer;
 import com.pathdlc.digger.selection.SelectionManager;
 import com.pathdlc.digger.util.Chat;
@@ -44,10 +43,10 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             new KeyBinding("key.pathdlc.clickgui", GLFW.GLFW_KEY_RIGHT_SHIFT,
                     "category.pathdlc"));
 
+    private static ClickGuiScreen clickGui;
+
     @Override
     public void onInitializeClient() {
-        LiquidGlassRenderer.init();
-
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
             if (!message.startsWith(".")) {
                 return true;
@@ -63,7 +62,10 @@ public class PathDlcDiggerClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (CLICK_GUI_KEY.wasPressed()) {
-                client.setScreen(new ClickGuiScreen());
+                if (clickGui == null) {
+                    clickGui = new ClickGuiScreen();
+                }
+                client.setScreen(clickGui);
             }
 
             DIGGER.tick(client);

@@ -277,6 +277,7 @@ public final class LiquidGlassRenderer {
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        boolean prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
 
         GL11.glEnable(GL11.GL_BLEND);
@@ -303,6 +304,9 @@ public final class LiquidGlassRenderer {
         GL30.glBindVertexArray(prevVao);
         GL20.glUseProgram(prevProgram);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
+        if (!prevBlend) {
+            GL11.glDisable(GL11.GL_BLEND);
+        }
         if (prevDepth) {
             GL11.glEnable(GL11.GL_DEPTH_TEST);
         }
