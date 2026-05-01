@@ -3,6 +3,7 @@ package com.pathdlc.digger.gui;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -54,14 +55,19 @@ public class ClickGuiScreen extends Screen {
 
         Category world = new Category("World", startX + spacing, startY);
         world.addModule(new Module("Warden"));
+        world.addModule(new Module("Fog"));
         categories.add(world);
 
         Category utility = new Category("Utility", startX + spacing * 2, startY);
         utility.addModule(new Module("Clan"));
+        utility.addModule(new Module("HitEffects"));
+        utility.addModule(new Module("AspectRatio"));
         categories.add(utility);
 
         Category render = new Category("Render", startX + spacing * 3, startY);
         render.addModule(new Module("Overlay"));
+        render.addModule(new Module("BlockOverlay"));
+        render.addModule(new Module("BlockESP"));
         categories.add(render);
     }
 
@@ -142,7 +148,10 @@ public class ClickGuiScreen extends Screen {
                 float btnY = catY + HEADER_HEIGHT + 1 + index * BUTTON_HEIGHT;
                 Module mod = btn.getModule();
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                drawStyledText(context, mod.getName(), (int) (catX + 5),
+                context.drawTexture(RenderLayer::getGuiTextured,
+                        mod.getIcon(), (int) (catX + 3),
+                        (int) (btnY + 1), 0, 0, 16, 16, 16, 16);
+                drawStyledText(context, mod.getName(), (int) (catX + 21),
                         (int) (btnY + 5), textColor);
                 index++;
             }
@@ -203,8 +212,11 @@ public class ClickGuiScreen extends Screen {
                 }
 
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                drawStyledText(context, "  " + mod.getName(),
-                        (int) (px + 14), (int) (rowY + 5), textColor);
+                context.drawTexture(RenderLayer::getGuiTextured,
+                        mod.getIcon(), (int) (px + 14),
+                        (int) (rowY + 1), 0, 0, 16, 16, 16, 16);
+                drawStyledText(context, mod.getName(),
+                        (int) (px + 32), (int) (rowY + 5), textColor);
 
                 String status = mod.isEnabled() ? "ON" : "OFF";
                 int statusColor = mod.isEnabled() ? accent.textColor : 0xFF666666;

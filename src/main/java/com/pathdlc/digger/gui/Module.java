@@ -1,23 +1,34 @@
 package com.pathdlc.digger.gui;
 
+import net.minecraft.util.Identifier;
+
 public class Module {
     private final String name;
+    private final Identifier icon;
     private boolean enabled;
     private Runnable onEnable;
     private Runnable onDisable;
 
     public Module(String name) {
         this.name = name;
+        this.icon = Identifier.of("pathdlc_digger",
+                "textures/gui/icons/" + name.toLowerCase() + ".png");
     }
 
     public Module(String name, Runnable onEnable, Runnable onDisable) {
         this.name = name;
+        this.icon = Identifier.of("pathdlc_digger",
+                "textures/gui/icons/" + name.toLowerCase() + ".png");
         this.onEnable = onEnable;
         this.onDisable = onDisable;
     }
 
     public String getName() {
         return name;
+    }
+
+    public Identifier getIcon() {
+        return icon;
     }
 
     public boolean isEnabled() {
