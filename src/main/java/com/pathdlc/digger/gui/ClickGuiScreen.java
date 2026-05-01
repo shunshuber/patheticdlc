@@ -10,14 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ClickGuiScreen extends Screen {
-    private static final int WIN_WIDTH = 360;
-    private static final int WIN_HEIGHT = 300;
-    private static final int TAB_HEIGHT = 28;
-    private static final int MODULE_HEIGHT = 22;
-    private static final int SETTING_HEIGHT = 16;
-    private static final int PADDING = 8;
-    private static final int SCROLL_SPEED = 10;
-    private static final float CORNER_RADIUS = 8f;
+    private static final int WIN_WIDTH = 380;
+    private static final int WIN_HEIGHT = 280;
+    private static final int HEADER_H = 32;
+    private static final int TAB_H = 26;
+    private static final int MODULE_H = 24;
+    private static final int SETTING_H = 18;
+    private static final int PAD = 10;
+    private static final int SCROLL_SPEED = 12;
 
     private static final Identifier CUSTOM_FONT =
             Identifier.of("pathdlc_digger", "clickgui");
@@ -26,6 +26,7 @@ public class ClickGuiScreen extends Screen {
     private int selectedTab = 0;
     private float openProgress = 0f;
     private int scrollOffset = 0;
+    private float[] tabHover;
 
     private ModuleSetting draggingSlider;
     private float draggingSliderX;
@@ -98,6 +99,8 @@ public class ClickGuiScreen extends Screen {
         render.addModule(motionBlur);
         categories.add(render);
 
+        tabHover = new float[categories.size()];
+
         for (Category cat : categories) {
             for (ModuleButton btn : cat.getModules()) {
                 ModuleManager.register(btn.getModule());
@@ -110,33 +113,30 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        openProgress += (1f - openProgress) * 0.2f;
+        openProgress += (1f - openProgress) * 0.18f;
         if (openProgress > 0.99f) openProgress = 1f;
-
-        float scale = 0.85f + 0.15f * openProgress;
-        int alpha = (int)(openProgress * 255);
-        if (alpha < 1) return;
+        if (openProgress < 0.01f) return;
 
         int wx = winX();
         int wy = winY();
 
         LiquidGlassRenderer.captureAndBlur();
 
-        context.fill(0, 0, width, height, (int)(openProgress * 0x88) << 24);
+        int dimAlpha = (int)(openProgress * 0x99);
+        context.fill(0, 0, width, height, dimAlpha << 24);
 
         if (LiquidGlassRenderer.isReady()) {
             LiquidGlassRenderer.drawGlassPanel(context,
-                    wx, wy, WIN_WIDTH, WIN_HEIGHT, CORNER_RADIUS, 0f);
+                    wx, wy, WIN_WIDTH, WIN_HEIGHT, 10f, 0f);
         } else {
-            context.fill(wx, wy, wx + WIN_WIDTH, wy + WIN_HEIGHT, 0xDD0A0A12);
+            context.fill(wx, wy, wx + WIN_WIDTH, wy + WIN_HEIGHT, 0xEE0C0C16);
         }
 
-        drawBorder(context, wx, wy, WIN_WIDTH, WIN_HEIGHT, 0x44FFFFFF);
+        renderHeader(context, wx, wy);
+        renderTabs(context, wx, wy + HEADER_H, mouseX, mouseY);
 
-        renderTabs(context, wx, wy, mouseX, mouseY);
-
-        int contentY = wy + TAB_HEIGHT + 2;
-        int contentH = WIN_HEIGHT - TAB_HEIGHT - 2;
+        int contentY = wy + HEADER_H + TAB_H + 1;
+        int contentH = WIN_HEIGHT - HEADER_H - TAB_H - 1;
 
         context.enableScissor(wx, contentY, wx + WIN_WIDTH, contentY + contentH);
         renderModules(context, wx, contentY, mouseX, mouseY);
@@ -144,41 +144,103 @@ public class ClickGuiScreen extends Screen {
 
         renderScrollbar(context, wx, contentY, contentH);
 
+        drawOutline(context, wx, wy, WIN_WIDTH, WIN_HEIGHT,
+                GuiSettings.getAccentColor());
+
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private void renderTabs(DrawContext context, int wx, int wy,
+    private void renderHeader(DrawContext context, int wx, int wy) {
+        GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
+
+        int accentArgb = 0xFF000000 | ((int)(accent.r * 255) << 16)
+                | ((int)(accent.g * 255) << 8) | (int)(accent.b * 255);
+        int gradTop = (0x44 << 24) | (accentArgb & 0x00FFFFFF);
+        int gradBot = 0x00000000;
+
+        for (int row = 0; row < HEADER_H; row++) {
+            float t = (float) row / HEADER_H;
+            int a = (int)(0x44 * (1f - t));
+            int lineColor = (a << 24) | (accentArgb & 0x00FFFFFF);
+            context.fill(wx, wy + row, wx + WIN_WIDTH, wy + row + 1, lineColor);
+        }
+
+        String title = "PathDLC";
+        int titleW = textRenderer.getWidth(styledText(title));
+        drawStyledText(context, title,
+                wx + PAD + 2, wy + HEADER_H / 2 - 4, 0xFFFFFFFF);
+
+        int activeCount = 0;
+        for (Category cat : categories)
+            for (ModuleButton btn : cat.getModules())
+                if (btn.getModule().isEnabled()) activeCount++;
+
+        String info = activeCount + " active";
+        int infoW = textRenderer.getWidth(styledText(info));
+        drawStyledText(context, info,
+                wx + WIN_WIDTH - PAD - infoW, wy + HEADER_H / 2 - 4,
+                0x88FFFFFF & accent.textColor);
+
+        context.fill(wx + 1, wy + HEADER_H - 1,
+                wx + WIN_WIDTH - 1, wy + HEADER_H, 0x22FFFFFF);
+    }
+
+    private void renderTabs(DrawContext context, int wx, int tabY,
                              int mouseX, int mouseY) {
         GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
         int tabCount = categories.size();
+        if (tabHover == null || tabHover.length != tabCount)
+            tabHover = new float[tabCount];
+
         int tabW = WIN_WIDTH / tabCount;
+
+        context.fill(wx, tabY, wx + WIN_WIDTH, tabY + TAB_H, 0x22000000);
 
         for (int i = 0; i < tabCount; i++) {
             int tx = wx + i * tabW;
             boolean hovered = mouseX >= tx && mouseX < tx + tabW
-                    && mouseY >= wy && mouseY < wy + TAB_HEIGHT;
+                    && mouseY >= tabY && mouseY < tabY + TAB_H;
             boolean active = i == selectedTab;
 
-            if (hovered && !active) {
-                context.fill(tx, wy, tx + tabW, wy + TAB_HEIGHT, 0x15FFFFFF);
+            float target = (active || hovered) ? 1f : 0f;
+            tabHover[i] += (target - tabHover[i]) * 0.2f;
+
+            if (tabHover[i] > 0.01f && !active) {
+                int hAlpha = (int)(tabHover[i] * 0x18);
+                context.fill(tx, tabY, tx + tabW, tabY + TAB_H,
+                        (hAlpha << 24) | 0xFFFFFF);
             }
 
             String name = categories.get(i).getName();
             int textW = textRenderer.getWidth(styledText(name));
             int textX = tx + tabW / 2 - textW / 2;
-            int textY = wy + TAB_HEIGHT / 2 - 4;
+            int textY = tabY + TAB_H / 2 - 4;
 
-            int color = active ? accent.textColor : (hovered ? 0xFFDDDDDD : 0xFF888888);
+            int color;
+            if (active) {
+                color = accent.textColor;
+            } else if (hovered) {
+                color = 0xFFDDDDDD;
+            } else {
+                color = 0xFF777777;
+            }
             drawStyledText(context, name, textX, textY, color);
 
             if (active) {
-                context.fill(tx + 4, wy + TAB_HEIGHT - 2,
-                        tx + tabW - 4, wy + TAB_HEIGHT, accent.textColor);
+                int lineW = Math.min(tabW - 12, textW + 10);
+                int lineX = tx + tabW / 2 - lineW / 2;
+                context.fill(lineX, tabY + TAB_H - 2,
+                        lineX + lineW, tabY + TAB_H, accent.textColor);
+
+                int glowA = 0x22;
+                context.fill(lineX - 2, tabY + TAB_H - 4,
+                        lineX + lineW + 2, tabY + TAB_H,
+                        (glowA << 24) | (accent.textColor & 0x00FFFFFF));
             }
         }
 
-        context.fill(wx, wy + TAB_HEIGHT, wx + WIN_WIDTH,
-                wy + TAB_HEIGHT + 1, 0x33FFFFFF);
+        context.fill(wx, tabY + TAB_H, wx + WIN_WIDTH,
+                tabY + TAB_H + 1, 0x22FFFFFF);
     }
 
     private void renderModules(DrawContext context, int wx, int contentY,
@@ -192,87 +254,123 @@ public class ClickGuiScreen extends Screen {
         for (ModuleButton btn : cat.getModules()) {
             Module mod = btn.getModule();
 
-            boolean hovered = mouseX >= wx + PADDING
-                    && mouseX <= wx + WIN_WIDTH - PADDING
-                    && mouseY >= y && mouseY <= y + MODULE_HEIGHT
+            boolean hovered = mouseX >= wx + PAD
+                    && mouseX <= wx + WIN_WIDTH - PAD
+                    && mouseY >= y && mouseY <= y + MODULE_H
                     && mouseY >= contentY;
             btn.updateHover(hovered);
 
-            int bgAlpha = (int)(btn.hoverAmount * 0x22);
-            if (bgAlpha > 0) {
-                context.fill(wx + PADDING, y,
-                        wx + WIN_WIDTH - PADDING, y + MODULE_HEIGHT,
-                        (bgAlpha << 24) | 0xFFFFFF);
-            }
-
-            int nameColor = mod.isEnabled() ? accent.textColor : 0xFFBBBBBB;
-            drawStyledText(context, mod.getName(), wx + PADDING + 6, y + 7, nameColor);
-
             if (mod.isEnabled()) {
-                int dotY = y + MODULE_HEIGHT / 2;
-                context.fill(wx + WIN_WIDTH - PADDING - 14, dotY - 2,
-                        wx + WIN_WIDTH - PADDING - 10, dotY + 2, accent.textColor);
+                context.fill(wx + 1, y, wx + 3, y + MODULE_H,
+                        accent.textColor);
+
+                int bgA = (int)(0x18 + btn.hoverAmount * 0x10);
+                context.fill(wx + PAD, y, wx + WIN_WIDTH - PAD, y + MODULE_H,
+                        (bgA << 24) | (accent.textColor & 0x00FFFFFF));
+            } else if (btn.hoverAmount > 0.01f) {
+                int hAlpha = (int)(btn.hoverAmount * 0x15);
+                context.fill(wx + PAD, y, wx + WIN_WIDTH - PAD, y + MODULE_H,
+                        (hAlpha << 24) | 0xFFFFFF);
             }
+
+            int nameColor = mod.isEnabled() ? 0xFFFFFFFF : 0xFFAAAAAA;
+            drawStyledText(context, mod.getName(), wx + PAD + 8, y + 8, nameColor);
+
+            int toggleX = wx + WIN_WIDTH - PAD - 32;
+            int toggleY = y + MODULE_H / 2 - 5;
+            renderToggleSwitch(context, toggleX, toggleY, mod.isEnabled(), accent);
 
             if (mod.hasSettings()) {
                 String arrow = mod.isSettingsExpanded() ? "v" : ">";
-                int arrowX = wx + WIN_WIDTH - PADDING - 24;
-                drawStyledText(context, arrow, arrowX, y + 7, 0xFF666666);
+                drawStyledText(context, arrow,
+                        wx + WIN_WIDTH - PAD - 48, y + 8, 0xFF555555);
             }
 
-            y += MODULE_HEIGHT;
+            y += MODULE_H;
 
             if (mod.isSettingsExpanded() && mod.hasSettings()) {
                 for (ModuleSetting setting : mod.getSettings()) {
                     renderSetting(context, setting, wx, y, mouseX, mouseY,
                             accent, contentY);
-                    y += SETTING_HEIGHT;
+                    y += SETTING_H;
                 }
             }
+
+            context.fill(wx + PAD + 4, y - 1,
+                    wx + WIN_WIDTH - PAD - 4, y, 0x0DFFFFFF);
+        }
+    }
+
+    private void renderToggleSwitch(DrawContext context, int x, int y,
+                                      boolean on, GuiSettings.AccentColor accent) {
+        int w = 20, h = 10;
+
+        int bgColor = on ? ((0xAA << 24) | (accent.textColor & 0x00FFFFFF))
+                          : 0x44333333;
+        context.fill(x, y, x + w, y + h, bgColor);
+        context.fill(x, y, x + w, y + 1, 0x22FFFFFF);
+        context.fill(x, y + h - 1, x + w, y + h, 0x22000000);
+
+        int knobX = on ? x + w - 6 : x + 2;
+        context.fill(knobX, y + 2, knobX + 4, y + h - 2, 0xFFFFFFFF);
+
+        if (on) {
+            context.fill(knobX - 1, y + 1, knobX + 5, y + h - 1,
+                    0x33FFFFFF);
         }
     }
 
     private void renderSetting(DrawContext context, ModuleSetting setting,
                                 int wx, int y, int mouseX, int mouseY,
                                 GuiSettings.AccentColor accent, int contentY) {
-        int left = wx + PADDING + 10;
-        int right = wx + WIN_WIDTH - PADDING - 4;
+        int left = wx + PAD + 14;
+        int right = wx + WIN_WIDTH - PAD - 6;
         int w = right - left;
 
-        context.fill(left, y, right, y + SETTING_HEIGHT, 0x11FFFFFF);
+        context.fill(left, y, right, y + SETTING_H, 0x0CFFFFFF);
 
-        drawStyledText(context, setting.getName(), left + 4, y + 4, 0xFF999999);
+        context.fill(left, y, left + 1, y + SETTING_H, 0x15FFFFFF);
+
+        drawStyledText(context, setting.getName(), left + 6, y + 5, 0xFF888888);
 
         if (setting.getType() == ModuleSetting.Type.SLIDER) {
-            float sliderX = left + w * 0.5f;
-            float sliderW = w * 0.42f;
-            float sliderY = y + SETTING_HEIGHT / 2f - 1;
+            float sliderX = left + w * 0.48f;
+            float sliderW = w * 0.44f;
+            float sliderY = y + SETTING_H / 2f - 1;
             float norm = setting.getNormalized();
 
             context.fill((int) sliderX, (int) sliderY,
-                    (int)(sliderX + sliderW), (int)(sliderY + 2), 0x44FFFFFF);
+                    (int)(sliderX + sliderW), (int)(sliderY + 2), 0x33FFFFFF);
+
+            int fillColor = accent.textColor;
             context.fill((int) sliderX, (int) sliderY,
                     (int)(sliderX + sliderW * norm), (int)(sliderY + 2),
-                    accent.textColor);
+                    fillColor);
 
             int knobX = (int)(sliderX + sliderW * norm);
-            context.fill(knobX - 2, (int)(sliderY - 2),
-                    knobX + 2, (int)(sliderY + 4), 0xFFFFFFFF);
+            context.fill(knobX - 3, (int)(sliderY - 2),
+                    knobX + 3, (int)(sliderY + 4), 0xFFFFFFFF);
+            context.fill(knobX - 2, (int)(sliderY - 1),
+                    knobX + 2, (int)(sliderY + 3), accent.textColor);
 
             String val = setting.getDisplayValue();
             int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val, right - valW - 2, y + 4, 0xFFCCCCCC);
+            drawStyledText(context, val, right - valW - 4, y + 5, 0xFFCCCCCC);
 
         } else if (setting.getType() == ModuleSetting.Type.TOGGLE) {
-            String val = setting.getBool() ? "ON" : "OFF";
-            int valColor = setting.getBool() ? accent.textColor : 0xFF555555;
-            int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val, right - valW - 4, y + 4, valColor);
+            int toggleX = right - 24;
+            int toggleY = y + SETTING_H / 2 - 5;
+            renderToggleSwitch(context, toggleX, toggleY,
+                    setting.getBool(), accent);
 
         } else if (setting.getType() == ModuleSetting.Type.CHOICE) {
             String val = setting.getChoiceValue();
             int valW = textRenderer.getWidth(styledText(val));
-            drawStyledText(context, val, right - valW - 4, y + 4, 0xFFCCCCCC);
+            int valX = right - valW - 6;
+
+            context.fill(valX - 4, y + 3, right - 2, y + SETTING_H - 3,
+                    0x18FFFFFF);
+            drawStyledText(context, val, valX, y + 5, 0xFFCCCCCC);
         }
     }
 
@@ -281,14 +379,15 @@ public class ClickGuiScreen extends Screen {
         int totalH = getTotalContentHeight();
         if (totalH <= contentH) return;
 
-        int barX = wx + WIN_WIDTH - 3;
+        int barX = wx + WIN_WIDTH - 4;
         float ratio = (float) contentH / totalH;
-        int thumbH = Math.max(10, (int)(contentH * ratio));
+        int thumbH = Math.max(12, (int)(contentH * ratio));
         int thumbY = contentY + (int)((float) scrollOffset / (totalH - contentH)
                 * (contentH - thumbH));
 
-        context.fill(barX, contentY, barX + 2, contentY + contentH, 0x22FFFFFF);
-        context.fill(barX, thumbY, barX + 2, thumbY + thumbH, 0x66FFFFFF);
+        context.fill(barX, contentY, barX + 2, contentY + contentH, 0x11FFFFFF);
+        context.fill(barX, thumbY, barX + 2, thumbY + thumbH,
+                0x55FFFFFF);
     }
 
     private int getTotalContentHeight() {
@@ -296,17 +395,18 @@ public class ClickGuiScreen extends Screen {
         Category cat = categories.get(selectedTab);
         int h = 8;
         for (ModuleButton btn : cat.getModules()) {
-            h += MODULE_HEIGHT;
+            h += MODULE_H;
             Module mod = btn.getModule();
             if (mod.isSettingsExpanded() && mod.hasSettings()) {
-                h += mod.getSettings().size() * SETTING_HEIGHT;
+                h += mod.getSettings().size() * SETTING_H;
             }
         }
         return h;
     }
 
-    private void drawBorder(DrawContext ctx, int x, int y, int w, int h,
-                             int color) {
+    private void drawOutline(DrawContext ctx, int x, int y, int w, int h,
+                              GuiSettings.AccentColor accent) {
+        int color = (0x33 << 24) | (accent.textColor & 0x00FFFFFF);
         ctx.fill(x, y, x + w, y + 1, color);
         ctx.fill(x, y + h - 1, x + w, y + h, color);
         ctx.fill(x, y, x + 1, y + h, color);
@@ -338,7 +438,8 @@ public class ClickGuiScreen extends Screen {
             return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        if (button == 0 && mouseY >= wy && mouseY < wy + TAB_HEIGHT) {
+        int tabY = wy + HEADER_H;
+        if (button == 0 && mouseY >= tabY && mouseY < tabY + TAB_H) {
             int tabW = WIN_WIDTH / categories.size();
             int clicked = ((int) mouseX - wx) / tabW;
             if (clicked >= 0 && clicked < categories.size()) {
@@ -350,34 +451,38 @@ public class ClickGuiScreen extends Screen {
 
         if (button == 0 && selectedTab >= 0 && selectedTab < categories.size()) {
             Category cat = categories.get(selectedTab);
-            int contentY = wy + TAB_HEIGHT + 2;
+            int contentY = wy + HEADER_H + TAB_H + 1;
             int y = contentY - scrollOffset + 4;
 
             for (ModuleButton btn : cat.getModules()) {
                 Module mod = btn.getModule();
 
-                if (mouseX >= wx + PADDING && mouseX <= wx + WIN_WIDTH - PADDING
-                        && mouseY >= y && mouseY < y + MODULE_HEIGHT
+                if (mouseX >= wx + PAD && mouseX <= wx + WIN_WIDTH - PAD
+                        && mouseY >= y && mouseY < y + MODULE_H
                         && mouseY >= contentY) {
 
-                    if (mod.hasSettings()
-                            && mouseX >= wx + WIN_WIDTH - PADDING - 30) {
+                    int toggleX = wx + WIN_WIDTH - PAD - 32;
+                    if (mouseX >= toggleX) {
+                        mod.toggle();
+                    } else if (mod.hasSettings()
+                            && mouseX >= wx + WIN_WIDTH - PAD - 52
+                            && mouseX < toggleX) {
                         mod.toggleSettingsExpanded();
                     } else {
                         mod.toggle();
                     }
                     return true;
                 }
-                y += MODULE_HEIGHT;
+                y += MODULE_H;
 
                 if (mod.isSettingsExpanded() && mod.hasSettings()) {
                     for (ModuleSetting setting : mod.getSettings()) {
-                        if (mouseY >= y && mouseY < y + SETTING_HEIGHT
+                        if (mouseY >= y && mouseY < y + SETTING_H
                                 && mouseY >= contentY) {
                             handleSettingClick(setting, wx, y, mouseX);
                             return true;
                         }
-                        y += SETTING_HEIGHT;
+                        y += SETTING_H;
                     }
                 }
             }
@@ -393,11 +498,11 @@ public class ClickGuiScreen extends Screen {
         } else if (setting.getType() == ModuleSetting.Type.CHOICE) {
             setting.cycleChoice();
         } else if (setting.getType() == ModuleSetting.Type.SLIDER) {
-            int left = wx + PADDING + 10;
-            int right = wx + WIN_WIDTH - PADDING - 4;
+            int left = wx + PAD + 14;
+            int right = wx + WIN_WIDTH - PAD - 6;
             int w = right - left;
-            float sliderX = left + w * 0.5f;
-            float sliderW = w * 0.42f;
+            float sliderX = left + w * 0.48f;
+            float sliderW = w * 0.44f;
 
             float norm = (float)((mouseX - sliderX) / sliderW);
             norm = Math.max(0, Math.min(1, norm));
@@ -411,9 +516,7 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            draggingSlider = null;
-        }
+        if (button == 0) draggingSlider = null;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -437,7 +540,7 @@ public class ClickGuiScreen extends Screen {
         if (mouseX >= wx && mouseX <= wx + WIN_WIDTH
                 && mouseY >= wy && mouseY <= wy + WIN_HEIGHT) {
             scrollOffset -= (int)(verticalAmount * SCROLL_SPEED);
-            int contentH = WIN_HEIGHT - TAB_HEIGHT - 2;
+            int contentH = WIN_HEIGHT - HEADER_H - TAB_H - 1;
             int totalH = getTotalContentHeight();
             int maxScroll = Math.max(0, totalH - contentH);
             scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset));

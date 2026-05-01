@@ -10,9 +10,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -27,16 +24,22 @@ public final class KillAuraHandler {
     private static int switchTimer;
     private static int nextAttackDelay;
     private static int ticksSinceAttack;
+    private static boolean isAiming;
+
+    private static final float MAX_YAW_SPEED = 35f;
+    private static final float MAX_PITCH_SPEED = 25f;
+    private static final float AIM_THRESHOLD = 8f;
 
     public static void tick(MinecraftClient client) {
         if (!ModuleManager.isEnabled("KillAura")) {
             currentTarget = null;
+            isAiming = false;
             return;
         }
 
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null) return;
-        if (player.networkHandler == null) return;
+        if (client.interactionManager == null) return;
 
         Module mod = ModuleManager.get("KillAura");
         if (mod == null) return;
@@ -56,22 +59,41 @@ public final class KillAuraHandler {
 
         if (targets.isEmpty()) {
             currentTarget = null;
+            isAiming = false;
             return;
         }
 
         switchTimer++;
         if (currentTarget == null || !currentTarget.isAlive()
                 || player.distanceTo(currentTarget) > range
-                || switchTimer > 40) {
+                || switchTimer > 60) {
             currentTarget = targets.get(0);
             switchTimer = 0;
         }
 
+        float[] targetAngles = getRotation(player, currentTarget);
+        float yawDiff = MathHelper.wrapDegrees(targetAngles[0] - player.getYaw());
+        float pitchDiff = targetAngles[1] - player.getPitch();
+
+        float jitterYaw = (ThreadLocalRandom.current().nextFloat() - 0.5f) * 2f;
+        float jitterPitch = (ThreadLocalRandom.current().nextFloat() - 0.5f) * 1f;
+
+        float yawStep = MathHelper.clamp(yawDiff + jitterYaw,
+                -MAX_YAW_SPEED, MAX_YAW_SPEED);
+        float pitchStep = MathHelper.clamp(pitchDiff + jitterPitch,
+                -MAX_PITCH_SPEED, MAX_PITCH_SPEED);
+
+        player.setYaw(player.getYaw() + yawStep);
+        player.setPitch(MathHelper.clamp(player.getPitch() + pitchStep, -90f, 90f));
+
+        isAiming = Math.abs(yawDiff) < AIM_THRESHOLD
+                && Math.abs(pitchDiff) < AIM_THRESHOLD;
+
         ticksSinceAttack++;
 
         if (player.getAttackCooldownProgress(0) < 1.0f) return;
-
         if (ticksSinceAttack < nextAttackDelay) return;
+        if (!isAiming) return;
 
         if (critOnly) {
             boolean falling = !player.isOnGround() && player.getVelocity().y < 0
@@ -79,38 +101,19 @@ public final class KillAuraHandler {
             if (!falling) return;
         }
 
-        float[] angles = getRotation(player, currentTarget);
-
-        player.networkHandler.sendPacket(
-                new PlayerMoveC2SPacket.Full(
-                        player.getX(), player.getY(), player.getZ(),
-                        angles[0], angles[1],
-                        player.isOnGround(),
-                        player.horizontalCollision));
-
-        player.networkHandler.sendPacket(
-                PlayerInteractEntityC2SPacket.attack(
-                        currentTarget, player.isSneaking()));
-
-        player.networkHandler.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
-
-        player.resetLastAttackedTicks();
-
-        player.networkHandler.sendPacket(
-                new PlayerMoveC2SPacket.Full(
-                        player.getX(), player.getY(), player.getZ(),
-                        player.getYaw(), player.getPitch(),
-                        player.isOnGround(),
-                        player.horizontalCollision));
+        client.interactionManager.attackEntity(player, currentTarget);
+        player.swingHand(Hand.MAIN_HAND);
 
         ticksSinceAttack = 0;
-        nextAttackDelay = ThreadLocalRandom.current().nextInt(0, 2);
+        nextAttackDelay = ThreadLocalRandom.current().nextInt(1, 4);
     }
 
     private static float[] getRotation(ClientPlayerEntity player,
                                         LivingEntity target) {
         Vec3d playerEyes = player.getEyePos();
-        Vec3d targetPos = target.getPos().add(0, target.getHeight() * 0.85, 0);
+        double targetY = target.getY() + target.getHeight() * 0.4
+                + ThreadLocalRandom.current().nextDouble() * target.getHeight() * 0.4;
+        Vec3d targetPos = new Vec3d(target.getX(), targetY, target.getZ());
 
         double dx = targetPos.x - playerEyes.x;
         double dy = targetPos.y - playerEyes.y;
