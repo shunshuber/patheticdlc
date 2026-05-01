@@ -1,6 +1,8 @@
 package com.pathdlc.digger.mixin;
 
+import com.pathdlc.digger.gui.Module;
 import com.pathdlc.digger.gui.ModuleManager;
+import com.pathdlc.digger.gui.ModuleSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
@@ -27,6 +29,11 @@ public abstract class AspectRatioMixin {
 
         float currentAspect = (float) w / h;
         float targetAspect = 4.0f / 3.0f;
+        Module mod = ModuleManager.get("AspectRatio");
+        if (mod != null) {
+            ModuleSetting fovSetting = mod.getSetting("FOV Scale");
+            if (fovSetting != null) targetAspect = fovSetting.getFloat();
+        }
 
         if (currentAspect > targetAspect) {
             float scale = targetAspect / currentAspect;

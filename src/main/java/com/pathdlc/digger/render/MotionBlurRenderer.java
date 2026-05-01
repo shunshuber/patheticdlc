@@ -19,6 +19,7 @@ public final class MotionBlurRenderer {
 
     private static int program;
     private static int prevFbo, prevTex;
+    private static int captureFbo, captureTex;
     private static int quadVao, quadVbo;
     private static int lastWidth, lastHeight;
     private static boolean initialized;
@@ -60,7 +61,12 @@ public final class MotionBlurRenderer {
 
         int currentFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 
-        int currentTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, currentFbo);
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, captureFbo);
+        GL30.glBlitFramebuffer(0, 0, screenWidth, screenHeight,
+                0, 0, screenWidth, screenHeight,
+                GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, currentFbo);
 
         if (!hasPrevFrame) {
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, currentFbo);
@@ -82,7 +88,7 @@ public final class MotionBlurRenderer {
         GL20.glUseProgram(program);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, currentTex);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, captureTex);
         GL20.glUniform1i(uCurrentFrame, 0);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE1);
@@ -122,6 +128,8 @@ public final class MotionBlurRenderer {
 
         prevFbo = GL30.glGenFramebuffers();
         prevTex = GL11.glGenTextures();
+        captureFbo = GL30.glGenFramebuffers();
+        captureTex = GL11.glGenTextures();
 
         initialized = true;
         LOGGER.info("MotionBlur initialized, program={}", program);
@@ -137,6 +145,17 @@ public final class MotionBlurRenderer {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
                 GL11.GL_TEXTURE_2D, prevTex, 0);
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, captureTex);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, w, h, 0,
+                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, captureFbo);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                GL11.GL_TEXTURE_2D, captureTex, 0);
+
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 

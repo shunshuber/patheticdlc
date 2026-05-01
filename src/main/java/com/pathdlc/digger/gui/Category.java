@@ -49,7 +49,7 @@ public class Category {
     }
 
     public float getHeight() {
-        float fullH = 20 + 1 + modules.size() * 18;
-        return 20 + (fullH - 20) * expandProgress;
+        float fullH = 22 + 1 + modules.size() * 20;
+        return 22 + (fullH - 22) * expandProgress;
     }
 }

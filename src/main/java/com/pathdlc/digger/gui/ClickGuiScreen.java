@@ -222,7 +222,7 @@ public class ClickGuiScreen extends Screen {
                     knobX + 2, (int) (sliderY + 4), 0xFFFFFFFF);
 
             String val = setting.getDisplayValue();
-            int valW = textRenderer.getWidth(val);
+            int valW = textRenderer.getWidth(styledText(val));
             drawStyledText(context, val,
                     (int) (indent + w - valW - 2), (int) (y + 3), 0xFFDDDDDD);
 
