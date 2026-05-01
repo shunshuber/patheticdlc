@@ -47,23 +47,37 @@ public class ClickGuiScreen extends Screen {
             Runnable appleOn, Runnable appleOff,
             Runnable digOn, Runnable digOff,
             Runnable wardenOn, Runnable wardenOff,
-            Runnable clanOn, Runnable clanOff) {
+            Runnable clanOn, Runnable clanOff,
+            Runnable autoMineOn, Runnable autoMineOff,
+            Runnable baseFinderOn, Runnable baseFinderOff,
+            Runnable autoFarmOn, Runnable autoFarmOff,
+            Runnable autoFishOn, Runnable autoFishOff) {
         if (!categories.isEmpty()) return;
 
         Module apple = new Module("Apple", appleOn, appleOff);
         Module dig = new Module("Dig", digOn, digOff);
+        Module autoMine = new Module("AutoMine", autoMineOn, autoMineOff);
+        autoMine.addSetting(ModuleSetting.choice("Ore",
+                new String[]{"Diamond","Emerald","Gold","Iron","Netherite","All Ores"}, 0));
+        Module autoFarm = new Module("AutoFarm", autoFarmOn, autoFarmOff);
+        autoFarm.addSetting(ModuleSetting.slider("Radius", 4f, 2f, 8f, 1f));
         Category farm = new Category("Farm", 0, 0);
         farm.addModule(apple);
         farm.addModule(dig);
+        farm.addModule(autoMine);
+        farm.addModule(autoFarm);
         categories.add(farm);
 
         Module warden = new Module("Warden", wardenOn, wardenOff);
+        Module baseFinder = new Module("BaseFinder", baseFinderOn, baseFinderOff);
+        baseFinder.addSetting(ModuleSetting.slider("Radius", 64f, 16f, 128f, 16f));
         Module fog = new Module("Fog");
         fog.addSetting(ModuleSetting.choice("Color",
                 new String[]{"White","Light Blue","Purple","Red","Green","Dark","Golden"}, 0));
         fog.addSetting(ModuleSetting.slider("Density", 0.5f, 0.0f, 1.0f, 0.1f));
         Category world = new Category("World", 0, 0);
         world.addModule(warden);
+        world.addModule(baseFinder);
         world.addModule(fog);
         categories.add(world);
 
@@ -81,9 +95,11 @@ public class ClickGuiScreen extends Screen {
         Module hitEffects = new Module("HitEffects");
         Module aspectRatio = new Module("AspectRatio");
         aspectRatio.addSetting(ModuleSetting.slider("FOV Scale", 1.33f, 1.0f, 2.0f, 0.01f));
+        Module autoFish = new Module("AutoFish", autoFishOn, autoFishOff);
         Category utility = new Category("Utility", 0, 0);
         utility.addModule(hitEffects);
         utility.addModule(aspectRatio);
+        utility.addModule(autoFish);
         categories.add(utility);
 
         Module blockOverlay = new Module("BlockOverlay");

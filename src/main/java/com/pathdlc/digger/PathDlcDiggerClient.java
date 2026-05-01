@@ -8,6 +8,10 @@ import com.pathdlc.digger.clan.ClanRedstoneBot;
 import com.pathdlc.digger.command.DotCommandHandler;
 import com.pathdlc.digger.farm.FarmCommandHandler;
 import com.pathdlc.digger.farm.FarmManager;
+import com.pathdlc.digger.funtime.AutoFarmBot;
+import com.pathdlc.digger.funtime.AutoFishBot;
+import com.pathdlc.digger.funtime.AutoMineBot;
+import com.pathdlc.digger.funtime.BaseFinderBot;
 import com.pathdlc.digger.gui.ClickGuiScreen;
 import com.pathdlc.digger.gui.ModuleManager;
 import com.pathdlc.digger.render.BlockESPRenderer;
@@ -39,6 +43,10 @@ public class PathDlcDiggerClient implements ClientModInitializer {
     private static final FarmManager FARMS = new FarmManager(BARITONE);
     private static final ClanRedstoneBot CLAN = new ClanRedstoneBot();
     private static final AutoWardenBot WARDEN = new AutoWardenBot(BARITONE);
+    private static final AutoMineBot AUTO_MINE = new AutoMineBot(BARITONE);
+    private static final BaseFinderBot BASE_FINDER = new BaseFinderBot();
+    private static final AutoFarmBot AUTO_FARM = new AutoFarmBot();
+    private static final AutoFishBot AUTO_FISH = new AutoFishBot();
 
     private static final DotCommandHandler COMMANDS = new DotCommandHandler(SELECTION, DIGGER, BARITONE);
     private static final FarmCommandHandler FARM_COMMANDS = new FarmCommandHandler(FARMS);
@@ -78,7 +86,15 @@ public class PathDlcDiggerClient implements ClientModInitializer {
                             () -> WARDEN.start(),
                             () -> WARDEN.stop(),
                             () -> CLAN.start(),
-                            () -> CLAN.stop()
+                            () -> CLAN.stop(),
+                            () -> AUTO_MINE.start(),
+                            () -> AUTO_MINE.stop(),
+                            () -> BASE_FINDER.start(),
+                            () -> BASE_FINDER.stop(),
+                            () -> AUTO_FARM.start(),
+                            () -> AUTO_FARM.stop(),
+                            () -> AUTO_FISH.start(),
+                            () -> AUTO_FISH.stop()
                     );
                 }
                 client.setScreen(clickGui);
@@ -89,6 +105,10 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             CLAN.tick(client);
             WARDEN.tick(client);
             KillAuraHandler.tick(client);
+            AUTO_MINE.tick(client);
+            BASE_FINDER.tick(client);
+            AUTO_FARM.tick(client);
+            AUTO_FISH.tick(client);
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
