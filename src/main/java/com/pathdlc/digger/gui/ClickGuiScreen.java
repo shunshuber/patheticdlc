@@ -126,9 +126,10 @@ public class ClickGuiScreen extends Screen {
                 new String[]{"Buyer","Junk Only","Sell All"}, 0));
         autoSell.addSetting(ModuleSetting.slider("Interval", 30f, 10f, 120f, 5f));
         Module autoBuy = new Module("AutoBuy", autoBuyOn, autoBuyOff);
-        autoBuy.addSetting(ModuleSetting.choice("Item",
-                new String[]{"Food","Blocks","Tools","Weapons","Potions"}, 0));
-        autoBuy.addSetting(ModuleSetting.slider("Interval", 60f, 10f, 300f, 10f));
+        autoBuy.addSetting(ModuleSetting.choice("Mode",
+                new String[]{"All Items","Skip Back/Close","Buy Buttons Only"}, 0));
+        autoBuy.addSetting(ModuleSetting.slider("Delay", 2f, 1f, 10f, 1f));
+        autoBuy.addSetting(ModuleSetting.toggle("AutoClose", false));
         Category funtime = new Category("FunTime", 0, 0);
         funtime.addModule(autoCraft);
         funtime.addModule(autoSell);
