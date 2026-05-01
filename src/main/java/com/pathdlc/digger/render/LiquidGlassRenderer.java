@@ -426,19 +426,31 @@ public final class LiquidGlassRenderer {
                 if (dist > 1.0) discard;
 
                 vec2 uv = gl_FragCoord.xy / ScreenSize;
-                vec4 blurred = texture(BlurredScene, uv);
 
-                vec3 glassTint = vec3(0.08, 0.08, 0.14);
-                vec3 glassColor = mix(blurred.rgb * 0.7, glassTint, 0.45);
+                float chromaOffset = 0.0008 + 0.0004 * HoverAmount;
+                float rCh = texture(BlurredScene, uv + vec2(chromaOffset, 0.0)).r;
+                float gCh = texture(BlurredScene, uv).g;
+                float bCh = texture(BlurredScene, uv - vec2(chromaOffset, 0.0)).b;
+                vec3 blurred = vec3(rCh, gCh, bCh);
+
+                vec3 glassTint = vec3(0.06, 0.06, 0.12);
+                vec3 glassColor = mix(blurred * 0.65, glassTint, 0.5);
                 glassColor = mix(glassColor, AccentColor, AccentMix);
-                glassColor += vec3(0.06) * HoverAmount;
+                glassColor += vec3(0.05) * HoverAmount;
 
-                float rimWidth = 1.2;
+                vec2 normPos = relPos / (PanelSize * 0.5);
+                float gradient = normPos.y * 0.04 + 0.02;
+                glassColor += vec3(gradient);
+
+                float rimWidth = 1.5;
                 float rim = 1.0 - smoothstep(0.0, rimWidth, abs(dist));
-                glassColor += vec3(0.25) * rim;
+                glassColor += vec3(0.3) * rim;
+
+                float innerGlow = smoothstep(PanelSize.x * 0.4, 0.0, length(relPos));
+                glassColor += vec3(0.02) * innerGlow;
 
                 float alpha = 1.0 - smoothstep(-1.0, 0.5, dist);
-                float baseAlpha = 0.7 + 0.08 * HoverAmount;
+                float baseAlpha = 0.75 + 0.1 * HoverAmount;
 
                 fragColor = vec4(glassColor, baseAlpha * alpha);
             }

@@ -38,20 +38,18 @@ public class Category {
         collapsed = !collapsed;
     }
 
-    public float getExpandProgress() {
+    public void updateExpandProgress() {
         float target = collapsed ? 0f : 1f;
         expandProgress += (target - expandProgress) * 0.18f;
         if (Math.abs(expandProgress - target) < 0.01f) expandProgress = target;
+    }
+
+    public float getExpandProgress() {
         return expandProgress;
     }
 
-    public boolean isFullyCollapsed() {
-        return collapsed && expandProgress < 0.01f;
-    }
-
     public float getHeight() {
-        float ep = getExpandProgress();
         float fullH = 20 + 1 + modules.size() * 18;
-        return 20 + (fullH - 20) * ep;
+        return 20 + (fullH - 20) * expandProgress;
     }
 }

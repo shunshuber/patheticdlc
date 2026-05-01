@@ -4,6 +4,7 @@ import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -12,16 +13,18 @@ import java.util.List;
 
 public class ClickGuiScreen extends Screen {
     private static final int PANEL_WIDTH = 120;
-    private static final int HEADER_HEIGHT = 20;
-    private static final int BUTTON_HEIGHT = 18;
-    private static final float HEADER_RADIUS = 8f;
+    private static final int HEADER_HEIGHT = 22;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final float HEADER_RADIUS = 10f;
     private static final float BUTTON_RADIUS = 6f;
 
     private static final Identifier CUSTOM_FONT =
             Identifier.of("pathdlc_digger", "clickgui");
+    private static final Identifier BACKGROUND =
+            Identifier.of("pathdlc_digger", "textures/gui/background.png");
 
     private static final int SETTINGS_WIDTH = 160;
-    private static final int SETTINGS_ROW = 18;
+    private static final int SETTINGS_ROW = 20;
 
     private final List<Category> categories = new ArrayList<>();
     private Category draggedCategory;
@@ -32,8 +35,6 @@ public class ClickGuiScreen extends Screen {
     private float singlePanelY = 30;
 
     private float openProgress;
-    private long openTime;
-    private long renderTick;
 
     public ClickGuiScreen() {
         super(Text.literal("ClickGUI"));
@@ -43,7 +44,6 @@ public class ClickGuiScreen extends Screen {
     protected void init() {
         super.init();
         openProgress = 0f;
-        openTime = System.currentTimeMillis();
     }
 
     public void initCategories(
@@ -97,19 +97,17 @@ public class ClickGuiScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         LiquidGlassRenderer.captureAndBlur();
-        renderTick++;
 
-        float targetOpen = 1.0f;
-        openProgress += (targetOpen - openProgress) * 0.12f;
+        openProgress += (1.0f - openProgress) * 0.15f;
         if (openProgress > 0.99f) openProgress = 1.0f;
 
-        float scale = 0.85f + 0.15f * easeOutBack(openProgress);
-        float alpha = openProgress;
+        for (Category cat : categories) {
+            cat.updateExpandProgress();
+        }
 
-        context.getMatrices().push();
-        context.getMatrices().translate(width / 2.0, height / 2.0, 0);
-        context.getMatrices().scale(scale, scale, 1f);
-        context.getMatrices().translate(-width / 2.0, -height / 2.0, 0);
+        renderBackground(context);
+
+        renderTitle(context);
 
         if (GuiSettings.getLayout() == GuiSettings.Layout.COLUMNS) {
             renderColumnsLayout(context, mouseX, mouseY);
@@ -119,41 +117,36 @@ public class ClickGuiScreen extends Screen {
 
         renderSettingsPanel(context, mouseX, mouseY);
 
-        renderLiquidDecor(context);
-
-        context.getMatrices().pop();
-
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private static float easeOutBack(float t) {
-        float c1 = 1.70158f;
-        float c3 = c1 + 1;
-        return 1 + c3 * (float) Math.pow(t - 1, 3) + c1 * (float) Math.pow(t - 1, 2);
+    // ── Background ─────────────────────────────────────────
+
+    private void renderBackground(DrawContext context) {
+        int alpha = (int) (180 * openProgress);
+        int bgColor = (alpha << 24) | 0x0A0A14;
+        context.fill(0, 0, width, height, bgColor);
+
+        context.drawTexture(RenderLayer::getGuiTextured, BACKGROUND,
+                0, 0, 0, 0, width, height, width, height);
+
+        int overlayAlpha = (int) (200 * openProgress);
+        int overlayColor = (overlayAlpha << 24) | 0x0A0A14;
+        context.fill(0, 0, width, height, overlayColor);
     }
 
-    private void renderLiquidDecor(DrawContext context) {
-        float time = renderTick * 0.03f;
+    private void renderTitle(DrawContext context) {
         GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
-        int accentAlpha = 0x18000000 | (accent.textColor & 0x00FFFFFF);
+        String title = "PathDLC";
+        int tw = textRenderer.getWidth(styledText(title));
+        drawStyledText(context, title, width / 2 - tw / 2, 8, accent.textColor);
 
-        for (int i = 0; i < 3; i++) {
-            float phase = i * 2.1f;
-            float waveY = height * 0.3f + i * 40
-                    + (float) Math.sin(time + phase) * 15f;
-            float waveX = 20 + (float) Math.sin(time * 0.7 + phase) * 10f;
-
-            for (int x = 0; x < width; x += 4) {
-                float localY = waveY + (float) Math.sin(time + x * 0.02f + phase) * 6f;
-                int dotAlpha = (int) (20 + 10 * Math.sin(time * 2 + x * 0.05 + phase));
-                dotAlpha = Math.max(0, Math.min(255, dotAlpha));
-                int color = (dotAlpha << 24) | (accent.textColor & 0x00FFFFFF);
-                context.fill(x, (int) localY, x + 2, (int) localY + 1, color);
-            }
-        }
+        String sub = countEnabled() + "/" + countTotal() + " modules active";
+        int sw = textRenderer.getWidth(styledText(sub));
+        drawStyledText(context, sub, width / 2 - sw / 2, 19, 0xFF888888);
     }
 
-    // ── Columns layout (original) ─────────────────────────
+    // ── Columns layout ─────────────────────────────────────
 
     private void renderColumnsLayout(DrawContext context, int mouseX, int mouseY) {
         for (Category cat : categories) {
@@ -186,17 +179,8 @@ public class ClickGuiScreen extends Screen {
                         && mouseY >= btnY && mouseY <= btnY + BUTTON_HEIGHT;
                 btn.updateHover(btnHovered);
 
-                context.getMatrices().push();
-                float btnScale = ep;
-                float btnAlpha = ep;
-                context.getMatrices().translate(catX + PANEL_WIDTH / 2f, btnY, 0);
-                context.getMatrices().scale(1f, btnScale, 1f);
-                context.getMatrices().translate(-(catX + PANEL_WIDTH / 2f), -btnY, 0);
-
                 drawPanel(context, catX, btnY, PANEL_WIDTH, BUTTON_HEIGHT,
                         BUTTON_RADIUS, btn.hoverAmount, btn.getModule().isEnabled());
-
-                context.getMatrices().pop();
                 index++;
             }
         }
@@ -209,26 +193,36 @@ public class ClickGuiScreen extends Screen {
 
         String name = cat.getName();
         int textWidth = textRenderer.getWidth(styledText(name));
-        drawStyledText(context, name, (int) (catX + 60 - textWidth / 2),
-                (int) (catY + 6), 0xFFFFFFFF);
+        drawStyledText(context, name, (int) (catX + PANEL_WIDTH / 2 - textWidth / 2),
+                (int) (catY + 7), 0xFFFFFFFF);
 
-        String arrow = cat.isCollapsed() ? ">" : "V";
-        drawStyledText(context, arrow, (int) (catX + 105), (int) (catY + 6),
-                0xFFFFFFFF);
+        String arrow = cat.isCollapsed() ? ">" : "v";
+        drawStyledText(context, arrow, (int) (catX + PANEL_WIDTH - 14),
+                (int) (catY + 7), 0xFF999999);
 
         float ep = cat.getExpandProgress();
         if (ep > 0.01f) {
-            context.fill((int) catX, (int) (catY + HEADER_HEIGHT),
-                    (int) (catX + PANEL_WIDTH), (int) (catY + HEADER_HEIGHT + 1),
-                    0x33FFFFFF);
+            int lineAlpha = (int) (0x33 * ep);
+            int lineColor = (lineAlpha << 24) | 0xFFFFFF;
+            context.fill((int) catX + 4, (int) (catY + HEADER_HEIGHT),
+                    (int) (catX + PANEL_WIDTH - 4),
+                    (int) (catY + HEADER_HEIGHT + 1), lineColor);
 
             int index = 0;
             for (ModuleButton btn : cat.getModules()) {
                 float btnY = catY + HEADER_HEIGHT + 1 + index * BUTTON_HEIGHT;
                 Module mod = btn.getModule();
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                drawStyledText(context, mod.getName(), (int) (catX + 8),
-                        (int) (btnY + 5), textColor);
+                drawStyledText(context, mod.getName(), (int) (catX + 10),
+                        (int) (btnY + 6), textColor);
+
+                if (mod.isEnabled()) {
+                    int dotColor = accent.textColor;
+                    context.fill((int) (catX + PANEL_WIDTH - 12),
+                            (int) (btnY + 8),
+                            (int) (catX + PANEL_WIDTH - 6),
+                            (int) (btnY + 14), dotColor);
+                }
                 index++;
             }
         }
@@ -243,33 +237,34 @@ public class ClickGuiScreen extends Screen {
         }
         totalModules += categories.size() - 1;
 
-        int panelW = 200;
-        int panelH = 24 + totalModules * BUTTON_HEIGHT;
+        int panelW = 220;
+        int panelH = 28 + totalModules * BUTTON_HEIGHT;
         float px = singlePanelX;
         float py = singlePanelY;
 
-        drawPanel(context, px, py, panelW, panelH, 10f, 0f, false);
-
-        drawStyledText(context, "PathDLC Modules", (int) (px + 10),
-                (int) (py + 7), 0xFFFFFFFF);
-
-        context.fill((int) px, (int) (py + 22), (int) (px + panelW),
-                (int) (py + 23), 0x33FFFFFF);
+        drawPanel(context, px, py, panelW, panelH, 12f, 0f, false);
 
         GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
-        float rowY = py + 24;
+        drawStyledText(context, "PathDLC Modules", (int) (px + 12),
+                (int) (py + 9), 0xFFFFFFFF);
+
+        int lineY = (int) (py + 26);
+        context.fill((int) px + 8, lineY, (int) (px + panelW - 8),
+                lineY + 1, 0x33FFFFFF);
+
+        float rowY = py + 28;
 
         for (int c = 0; c < categories.size(); c++) {
             Category cat = categories.get(c);
 
             if (c > 0) {
-                context.fill((int) (px + 8), (int) rowY + 8,
-                        (int) (px + panelW - 8), (int) rowY + 9, 0x22FFFFFF);
+                context.fill((int) (px + 12), (int) rowY + 9,
+                        (int) (px + panelW - 12), (int) rowY + 10, 0x1AFFFFFF);
                 rowY += BUTTON_HEIGHT;
             }
 
             drawStyledText(context, cat.getName(),
-                    (int) (px + 8), (int) (rowY + 5), 0xFFAAAAAA);
+                    (int) (px + 10), (int) (rowY + 6), 0xFF777777);
             rowY += BUTTON_HEIGHT;
 
             for (ModuleButton btn : cat.getModules()) {
@@ -279,23 +274,23 @@ public class ClickGuiScreen extends Screen {
 
                 Module mod = btn.getModule();
                 if (mod.isEnabled()) {
-                    drawPanel(context, px + 4, rowY, panelW - 8, BUTTON_HEIGHT,
-                            4f, btn.hoverAmount, true);
+                    drawPanel(context, px + 6, rowY, panelW - 12, BUTTON_HEIGHT,
+                            5f, btn.hoverAmount, true);
                 } else if (hovered) {
-                    context.fill((int) (px + 4), (int) rowY,
-                            (int) (px + panelW - 4), (int) (rowY + BUTTON_HEIGHT),
-                            0x18FFFFFF);
+                    context.fill((int) (px + 6), (int) rowY,
+                            (int) (px + panelW - 6), (int) (rowY + BUTTON_HEIGHT),
+                            0x14FFFFFF);
                 }
 
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
                 drawStyledText(context, mod.getName(),
-                        (int) (px + 14), (int) (rowY + 5), textColor);
+                        (int) (px + 16), (int) (rowY + 6), textColor);
 
                 String status = mod.isEnabled() ? "ON" : "OFF";
-                int statusColor = mod.isEnabled() ? accent.textColor : 0xFF666666;
-                int sw = textRenderer.getWidth(styledText(status));
+                int statusColor = mod.isEnabled() ? accent.textColor : 0xFF555555;
+                int statusW = textRenderer.getWidth(styledText(status));
                 drawStyledText(context, status,
-                        (int) (px + panelW - sw - 10), (int) (rowY + 5),
+                        (int) (px + panelW - statusW - 14), (int) (rowY + 6),
                         statusColor);
 
                 rowY += BUTTON_HEIGHT;
@@ -311,17 +306,17 @@ public class ClickGuiScreen extends Screen {
 
     private void renderSettingsPanel(DrawContext context, int mouseX, int mouseY) {
         float sx = settingsX();
-        float sy = 30;
+        float sy = 34;
         int rows = 7;
-        int panelH = HEADER_HEIGHT + 1 + rows * SETTINGS_ROW + 4;
+        int panelH = HEADER_HEIGHT + 1 + rows * SETTINGS_ROW + 6;
 
-        drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 8f, 0f, false);
+        drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 10f, 0f, false);
 
-        drawStyledText(context, "Settings", (int) (sx + 10),
-                (int) (sy + 6), 0xFFFFFFFF);
+        drawStyledText(context, "Settings", (int) (sx + 12),
+                (int) (sy + 7), 0xFFFFFFFF);
 
-        context.fill((int) sx, (int) (sy + HEADER_HEIGHT),
-                (int) (sx + SETTINGS_WIDTH), (int) (sy + HEADER_HEIGHT + 1),
+        context.fill((int) sx + 4, (int) (sy + HEADER_HEIGHT),
+                (int) (sx + SETTINGS_WIDTH - 4), (int) (sy + HEADER_HEIGHT + 1),
                 0x33FFFFFF);
 
         float rowY = sy + HEADER_HEIGHT + 3;
@@ -353,8 +348,8 @@ public class ClickGuiScreen extends Screen {
         rowY += SETTINGS_ROW;
 
         String modCount = countEnabled() + "/" + countTotal() + " active";
-        drawStyledText(context, modCount, (int) (sx + 8), (int) (rowY + 4),
-                0xFF888888);
+        drawStyledText(context, modCount, (int) (sx + 10), (int) (rowY + 5),
+                0xFF666666);
     }
 
     private void drawSettingsRow(DrawContext context, float sx, float rowY,
@@ -363,16 +358,17 @@ public class ClickGuiScreen extends Screen {
         boolean hovered = mouseX >= sx && mouseX <= sx + SETTINGS_WIDTH
                 && mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW;
         if (hovered) {
-            context.fill((int) sx, (int) rowY, (int) (sx + SETTINGS_WIDTH),
+            context.fill((int) sx + 4, (int) rowY,
+                    (int) (sx + SETTINGS_WIDTH - 4),
                     (int) (rowY + SETTINGS_ROW), 0x18FFFFFF);
         }
 
-        drawStyledText(context, label, (int) (sx + 8), (int) (rowY + 5),
+        drawStyledText(context, label, (int) (sx + 10), (int) (rowY + 6),
                 0xFFBBBBBB);
 
         int vw = textRenderer.getWidth(styledText(value));
         drawStyledText(context, value,
-                (int) (sx + SETTINGS_WIDTH - vw - 8), (int) (rowY + 5),
+                (int) (sx + SETTINGS_WIDTH - vw - 10), (int) (rowY + 6),
                 valueColor);
     }
 
@@ -466,7 +462,7 @@ public class ClickGuiScreen extends Screen {
 
     private boolean handleSettingsClick(double mouseX, double mouseY) {
         float sx = settingsX();
-        float sy = 30;
+        float sy = 34;
 
         if (mouseX < sx || mouseX > sx + SETTINGS_WIDTH) {
             return false;
@@ -519,7 +515,7 @@ public class ClickGuiScreen extends Screen {
 
             if (mouseX >= catX && mouseX <= catX + PANEL_WIDTH
                     && mouseY >= catY && mouseY <= catY + HEADER_HEIGHT) {
-                if (mouseX >= catX + 95) {
+                if (mouseX >= catX + PANEL_WIDTH - 20) {
                     cat.toggleCollapsed();
                 } else {
                     draggedCategory = cat;
@@ -548,19 +544,19 @@ public class ClickGuiScreen extends Screen {
     }
 
     private boolean handleSingleClick(double mouseX, double mouseY) {
-        int panelW = 200;
+        int panelW = 220;
         float px = singlePanelX;
         float py = singlePanelY;
 
         if (mouseX >= px && mouseX <= px + panelW
-                && mouseY >= py && mouseY <= py + 24) {
+                && mouseY >= py && mouseY <= py + 28) {
             draggingSinglePanel = true;
             dragOffsetX = (float) mouseX - px;
             dragOffsetY = (float) mouseY - py;
             return true;
         }
 
-        float rowY = py + 24;
+        float rowY = py + 28;
         for (int c = 0; c < categories.size(); c++) {
             Category cat = categories.get(c);
             if (c > 0) {
