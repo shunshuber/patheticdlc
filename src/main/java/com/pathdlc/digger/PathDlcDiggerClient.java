@@ -1,6 +1,7 @@
 package com.pathdlc.digger;
 
 import com.pathdlc.digger.baritone.BaritoneBridge;
+import com.pathdlc.digger.combat.KillAuraHandler;
 import com.pathdlc.digger.bot.DiggerBot;
 import com.pathdlc.digger.clan.ClanCommandHandler;
 import com.pathdlc.digger.clan.ClanRedstoneBot;
@@ -87,6 +88,7 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             FARMS.tick(client);
             CLAN.tick(client);
             WARDEN.tick(client);
+            KillAuraHandler.tick(client);
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {

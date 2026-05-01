@@ -2,12 +2,17 @@ package com.pathdlc.digger.gui;
 
 import net.minecraft.util.Identifier;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Module {
     private final String name;
     private final Identifier icon;
     private boolean enabled;
     private Runnable onEnable;
     private Runnable onDisable;
+    private final List<ModuleSetting> settings = new ArrayList<>();
+    private boolean settingsExpanded;
 
     public Module(String name) {
         this.name = name;
@@ -47,5 +52,33 @@ public class Module {
         if (!enabled && onDisable != null) {
             onDisable.run();
         }
+    }
+
+    public Module addSetting(ModuleSetting setting) {
+        settings.add(setting);
+        return this;
+    }
+
+    public List<ModuleSetting> getSettings() {
+        return settings;
+    }
+
+    public boolean hasSettings() {
+        return !settings.isEmpty();
+    }
+
+    public boolean isSettingsExpanded() {
+        return settingsExpanded;
+    }
+
+    public void toggleSettingsExpanded() {
+        settingsExpanded = !settingsExpanded;
+    }
+
+    public ModuleSetting getSetting(String name) {
+        for (ModuleSetting s : settings) {
+            if (s.getName().equals(name)) return s;
+        }
+        return null;
     }
 }
