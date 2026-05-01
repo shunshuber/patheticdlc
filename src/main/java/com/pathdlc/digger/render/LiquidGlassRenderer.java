@@ -27,8 +27,7 @@ public final class LiquidGlassRenderer {
     private static boolean initialized;
     private static boolean shadersFailed;
 
-    private static final int BLUR_ITERATIONS = 3;
-    private static final float BLUR_SPREAD = 2.5f;
+    private static long lastCaptureFrame = -1;
 
     private static int uBlurSampler, uBlurDirection;
     private static int uGlassSampler, uGlassScreenSize;
@@ -185,6 +184,8 @@ public final class LiquidGlassRenderer {
     }
 
     public static void captureAndBlur() {
+        if (!PerformanceSettings.useShaders()) return;
+
         if (!initialized && !shadersFailed) {
             init();
         }
@@ -193,6 +194,10 @@ public final class LiquidGlassRenderer {
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
+        long currentFrame = mc.world != null ? mc.world.getTime() : System.nanoTime() / 16_666_666;
+        if (currentFrame == lastCaptureFrame) return;
+        lastCaptureFrame = currentFrame;
+
         int fbWidth = mc.getWindow().getFramebufferWidth();
         int fbHeight = mc.getWindow().getFramebufferHeight();
 
@@ -204,6 +209,15 @@ public final class LiquidGlassRenderer {
         GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fboA);
         GL30.glBlitFramebuffer(0, 0, fbWidth, fbHeight,
                 0, 0, fbWidth, fbHeight, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+
+        int blurIter = PerformanceSettings.getBlurIterations();
+        float blurSpread = PerformanceSettings.getBlurSpread();
+
+        if (blurIter <= 0) {
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, mainFbo);
+            GL11.glViewport(0, 0, fbWidth, fbHeight);
+            return;
+        }
 
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
@@ -217,8 +231,8 @@ public final class LiquidGlassRenderer {
         GL30.glBindVertexArray(quadVao);
         GL20.glUniform1i(uBlurSampler, 0);
 
-        for (int i = 0; i < BLUR_ITERATIONS; i++) {
-            float spread = BLUR_SPREAD * (i + 1);
+        for (int i = 0; i < blurIter; i++) {
+            float spread = blurSpread * (i + 1);
 
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fboB);
             GL11.glViewport(0, 0, fbWidth, fbHeight);
@@ -277,6 +291,7 @@ public final class LiquidGlassRenderer {
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int prevTex = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        boolean prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
         boolean prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
 
         GL11.glEnable(GL11.GL_BLEND);
@@ -303,6 +318,9 @@ public final class LiquidGlassRenderer {
         GL30.glBindVertexArray(prevVao);
         GL20.glUseProgram(prevProgram);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTex);
+        if (!prevBlend) {
+            GL11.glDisable(GL11.GL_BLEND);
+        }
         if (prevDepth) {
             GL11.glEnable(GL11.GL_DEPTH_TEST);
         }
@@ -422,19 +440,31 @@ public final class LiquidGlassRenderer {
                 if (dist > 1.0) discard;
 
                 vec2 uv = gl_FragCoord.xy / ScreenSize;
-                vec4 blurred = texture(BlurredScene, uv);
 
-                vec3 glassTint = vec3(0.08, 0.08, 0.14);
-                vec3 glassColor = mix(blurred.rgb * 0.7, glassTint, 0.45);
+                float chromaOffset = 0.0008 + 0.0004 * HoverAmount;
+                float rCh = texture(BlurredScene, uv + vec2(chromaOffset, 0.0)).r;
+                float gCh = texture(BlurredScene, uv).g;
+                float bCh = texture(BlurredScene, uv - vec2(chromaOffset, 0.0)).b;
+                vec3 blurred = vec3(rCh, gCh, bCh);
+
+                vec3 glassTint = vec3(0.06, 0.06, 0.12);
+                vec3 glassColor = mix(blurred * 0.65, glassTint, 0.5);
                 glassColor = mix(glassColor, AccentColor, AccentMix);
-                glassColor += vec3(0.06) * HoverAmount;
+                glassColor += vec3(0.05) * HoverAmount;
 
-                float rimWidth = 1.2;
+                vec2 normPos = relPos / (PanelSize * 0.5);
+                float gradient = normPos.y * 0.04 + 0.02;
+                glassColor += vec3(gradient);
+
+                float rimWidth = 1.5;
                 float rim = 1.0 - smoothstep(0.0, rimWidth, abs(dist));
-                glassColor += vec3(0.25) * rim;
+                glassColor += vec3(0.3) * rim;
+
+                float innerGlow = smoothstep(PanelSize.x * 0.4, 0.0, length(relPos));
+                glassColor += vec3(0.02) * innerGlow;
 
                 float alpha = 1.0 - smoothstep(-1.0, 0.5, dist);
-                float baseAlpha = 0.7 + 0.08 * HoverAmount;
+                float baseAlpha = 0.75 + 0.1 * HoverAmount;
 
                 fragColor = vec4(glassColor, baseAlpha * alpha);
             }

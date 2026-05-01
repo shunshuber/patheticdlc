@@ -10,6 +10,7 @@ public class Category {
     public float y;
     public float hoverAmount;
     private boolean collapsed;
+    private float expandProgress = 1.0f;
 
     public Category(String name, float x, float y) {
         this.name = name;
@@ -37,10 +38,18 @@ public class Category {
         collapsed = !collapsed;
     }
 
+    public void updateExpandProgress() {
+        float target = collapsed ? 0f : 1f;
+        expandProgress += (target - expandProgress) * 0.18f;
+        if (Math.abs(expandProgress - target) < 0.01f) expandProgress = target;
+    }
+
+    public float getExpandProgress() {
+        return expandProgress;
+    }
+
     public float getHeight() {
-        if (collapsed) {
-            return 20;
-        }
-        return 20 + 1 + modules.size() * 18;
+        float fullH = 22 + 1 + modules.size() * 20;
+        return 22 + (fullH - 22) * expandProgress;
     }
 }
