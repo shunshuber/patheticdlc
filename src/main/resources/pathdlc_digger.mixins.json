@@ -6,7 +6,8 @@
     "FogMixin",
     "HitEffectsMixin",
     "AspectRatioMixin",
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "MotionBlurMixin"
   ],
   "injectors": {
     "defaultRequire": 1

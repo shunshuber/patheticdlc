@@ -90,9 +90,12 @@ public class ClickGuiScreen extends Screen {
                 new String[]{"Kitten","Sky","Devil"}, 0));
         Module blockEsp = new Module("BlockESP");
         blockEsp.addSetting(ModuleSetting.slider("Radius", 32f, 8f, 64f, 4f));
+        Module motionBlur = new Module("MotionBlur");
+        motionBlur.addSetting(ModuleSetting.slider("Strength", 0.5f, 0.1f, 0.9f, 0.05f));
         Category render = new Category("Render", startX + spacing * 4, startY);
         render.addModule(blockOverlay);
         render.addModule(blockEsp);
+        render.addModule(motionBlur);
         categories.add(render);
 
         for (Category cat : categories) {
