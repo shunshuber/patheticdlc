@@ -167,9 +167,10 @@ public class CustomTitleScreen extends Screen {
             if (btnHover[i] > 0.01f) {
                 int lineA = (int) (btnHover[i] * 120);
                 int lineColor = (lineA << 24) | 0x6699CC;
-                context.fill(drawX, btnY + BTN_HEIGHT - 1,
-                        drawX + (int) (BTN_WIDTH * btnHover[i]),
-                        btnY + BTN_HEIGHT, lineColor);
+                int lineW = (int) ((BTN_WIDTH - 8) * btnHover[i]);
+                context.fill(drawX + 4, btnY + BTN_HEIGHT - 3,
+                        drawX + 4 + lineW,
+                        btnY + BTN_HEIGHT - 2, lineColor);
             }
         }
     }

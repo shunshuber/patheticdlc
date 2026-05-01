@@ -8,16 +8,26 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.Monster;
+import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
 public final class KillAuraHandler {
-    private static int cooldownTicks;
+    private static LivingEntity currentTarget;
+    private static int attackTimer;
+    private static int switchTimer;
 
     public static void tick(MinecraftClient client) {
-        if (!ModuleManager.isEnabled("KillAura")) return;
+        if (!ModuleManager.isEnabled("KillAura")) {
+            currentTarget = null;
+            return;
+        }
 
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null) return;
@@ -35,63 +45,90 @@ public final class KillAuraHandler {
         boolean hitMobs = attackMobs != null && attackMobs.getBool();
         boolean hitPlayers = attackPlayers != null && attackPlayers.getBool();
 
-        if (cooldownTicks > 0) {
-            cooldownTicks--;
+        List<LivingEntity> targets = findTargets(client, player, range,
+                hitMobs, hitPlayers);
+
+        if (targets.isEmpty()) {
+            currentTarget = null;
             return;
         }
 
-        if (player.getAttackCooldownProgress(0) < 1.0f) return;
-
-        if (critOnly && (player.isOnGround() || player.getVelocity().y >= 0)) {
-            return;
+        switchTimer++;
+        if (currentTarget == null || !currentTarget.isAlive()
+                || player.distanceTo(currentTarget) > range
+                || switchTimer > 40) {
+            currentTarget = targets.get(0);
+            switchTimer = 0;
         }
 
-        LivingEntity target = findTarget(client, player, range, hitMobs, hitPlayers);
-        if (target == null) return;
+        rotateTo(player, currentTarget);
 
-        rotateTo(player, target);
+        attackTimer++;
 
-        client.interactionManager.attackEntity(player, target);
-        player.swingHand(Hand.MAIN_HAND);
+        boolean cooldownReady = player.getAttackCooldownProgress(0) >= 0.9f;
 
-        cooldownTicks = 2;
+        if (critOnly) {
+            boolean falling = !player.isOnGround() && player.getVelocity().y < 0
+                    && player.fallDistance > 0.0f;
+            if (!falling) {
+                if (player.isOnGround() && cooldownReady && attackTimer > 2) {
+                    player.jump();
+                }
+                return;
+            }
+        }
+
+        if (cooldownReady && attackTimer >= 1) {
+            client.interactionManager.attackEntity(player, currentTarget);
+            player.swingHand(Hand.MAIN_HAND);
+            attackTimer = 0;
+        }
     }
 
-    private static LivingEntity findTarget(MinecraftClient client,
-                                             ClientPlayerEntity player,
-                                             float range, boolean hitMobs,
-                                             boolean hitPlayers) {
-        LivingEntity best = null;
-        double bestDist = range;
+    private static List<LivingEntity> findTargets(MinecraftClient client,
+                                                    ClientPlayerEntity player,
+                                                    float range,
+                                                    boolean hitMobs,
+                                                    boolean hitPlayers) {
+        List<LivingEntity> result = new ArrayList<>();
 
         for (Entity entity : client.world.getEntities()) {
             if (entity == player) continue;
             if (!(entity instanceof LivingEntity living)) continue;
-            if (!living.isAlive()) continue;
+            if (!living.isAlive() || living.getHealth() <= 0) continue;
+
+            double dist = player.distanceTo(living);
+            if (dist > range) continue;
 
             boolean isMob = entity instanceof Monster;
+            boolean isAnimal = entity instanceof AnimalEntity;
             boolean isPlayer = entity instanceof PlayerEntity;
 
             if (isMob && !hitMobs) continue;
+            if (isAnimal && !hitMobs) continue;
             if (isPlayer && !hitPlayers) continue;
-            if (!isMob && !isPlayer) continue;
+            if (!isMob && !isAnimal && !isPlayer) continue;
 
-            double dist = player.distanceTo(living);
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = living;
-            }
+            result.add(living);
         }
-        return best;
+
+        result.sort(Comparator.comparingDouble(e -> {
+            double dist = player.distanceTo(e);
+            double healthPenalty = e.getHealth() / 20.0 * 0.5;
+            return dist + healthPenalty;
+        }));
+
+        return result;
     }
 
-    private static void rotateTo(ClientPlayerEntity player, LivingEntity target) {
+    private static void rotateTo(ClientPlayerEntity player,
+                                   LivingEntity target) {
         Vec3d playerEyes = player.getEyePos();
-        Vec3d targetCenter = target.getPos().add(0, target.getHeight() / 2.0, 0);
+        Vec3d targetPos = target.getPos().add(0, target.getHeight() * 0.85, 0);
 
-        double dx = targetCenter.x - playerEyes.x;
-        double dy = targetCenter.y - playerEyes.y;
-        double dz = targetCenter.z - playerEyes.z;
+        double dx = targetPos.x - playerEyes.x;
+        double dy = targetPos.y - playerEyes.y;
+        double dz = targetPos.z - playerEyes.z;
 
         double dist = Math.sqrt(dx * dx + dz * dz);
         float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
@@ -102,9 +139,12 @@ public final class KillAuraHandler {
         float yawDiff = MathHelper.wrapDegrees(targetYaw - player.getYaw());
         float pitchDiff = targetPitch - player.getPitch();
 
-        float rotSpeed = 0.6f;
-        player.setYaw(player.getYaw() + yawDiff * rotSpeed);
-        player.setPitch(player.getPitch() + pitchDiff * rotSpeed);
+        player.setYaw(player.getYaw() + yawDiff);
+        player.setPitch(player.getPitch() + pitchDiff);
+    }
+
+    public static LivingEntity getCurrentTarget() {
+        return currentTarget;
     }
 
     private KillAuraHandler() {}
