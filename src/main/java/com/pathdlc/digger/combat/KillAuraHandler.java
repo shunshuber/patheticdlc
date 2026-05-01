@@ -10,6 +10,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -31,6 +32,7 @@ public final class KillAuraHandler {
 
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null) return;
+        if (client.interactionManager == null) return;
 
         Module mod = ModuleManager.get("KillAura");
         if (mod == null) return;
@@ -61,8 +63,6 @@ public final class KillAuraHandler {
             switchTimer = 0;
         }
 
-        rotateTo(player, currentTarget);
-
         attackTimer++;
 
         boolean cooldownReady = player.getAttackCooldownProgress(0) >= 0.9f;
@@ -79,10 +79,36 @@ public final class KillAuraHandler {
         }
 
         if (cooldownReady && attackTimer >= 1) {
+            float[] angles = getRotation(player, currentTarget);
+
+            player.networkHandler.sendPacket(
+                    new PlayerMoveC2SPacket.LookAndOnGround(
+                            angles[0], angles[1],
+                            player.isOnGround(),
+                            player.horizontalCollision));
+
             client.interactionManager.attackEntity(player, currentTarget);
             player.swingHand(Hand.MAIN_HAND);
             attackTimer = 0;
         }
+    }
+
+    private static float[] getRotation(ClientPlayerEntity player,
+                                        LivingEntity target) {
+        Vec3d playerEyes = player.getEyePos();
+        Vec3d targetPos = target.getPos().add(0, target.getHeight() * 0.85, 0);
+
+        double dx = targetPos.x - playerEyes.x;
+        double dy = targetPos.y - playerEyes.y;
+        double dz = targetPos.z - playerEyes.z;
+
+        double dist = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) Math.toDegrees(-Math.atan2(dy, dist));
+
+        pitch = MathHelper.clamp(pitch, -90f, 90f);
+
+        return new float[]{yaw, pitch};
     }
 
     private static List<LivingEntity> findTargets(MinecraftClient client,
@@ -119,28 +145,6 @@ public final class KillAuraHandler {
         }));
 
         return result;
-    }
-
-    private static void rotateTo(ClientPlayerEntity player,
-                                   LivingEntity target) {
-        Vec3d playerEyes = player.getEyePos();
-        Vec3d targetPos = target.getPos().add(0, target.getHeight() * 0.85, 0);
-
-        double dx = targetPos.x - playerEyes.x;
-        double dy = targetPos.y - playerEyes.y;
-        double dz = targetPos.z - playerEyes.z;
-
-        double dist = Math.sqrt(dx * dx + dz * dz);
-        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float targetPitch = (float) Math.toDegrees(-Math.atan2(dy, dist));
-
-        targetPitch = MathHelper.clamp(targetPitch, -90f, 90f);
-
-        float yawDiff = MathHelper.wrapDegrees(targetYaw - player.getYaw());
-        float pitchDiff = targetPitch - player.getPitch();
-
-        player.setYaw(player.getYaw() + yawDiff);
-        player.setPitch(player.getPitch() + pitchDiff);
     }
 
     public static LivingEntity getCurrentTarget() {
