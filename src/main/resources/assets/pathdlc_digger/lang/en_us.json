@@ -1,3 +1,5 @@
 {
-  "pathdlc_digger.name": "PathDLC Baritone Digger"
+  "pathdlc_digger.name": "PathDLC Baritone Digger",
+  "category.pathdlc": "PathDLC",
+  "key.pathdlc.clickgui": "Open ClickGUI"
 }

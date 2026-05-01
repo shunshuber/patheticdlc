@@ -7,6 +7,8 @@ import com.pathdlc.digger.clan.ClanRedstoneBot;
 import com.pathdlc.digger.command.DotCommandHandler;
 import com.pathdlc.digger.farm.FarmCommandHandler;
 import com.pathdlc.digger.farm.FarmManager;
+import com.pathdlc.digger.gui.ClickGuiScreen;
+import com.pathdlc.digger.render.LiquidGlassRenderer;
 import com.pathdlc.digger.render.SelectionRenderer;
 import com.pathdlc.digger.selection.SelectionManager;
 import com.pathdlc.digger.util.Chat;
@@ -15,8 +17,11 @@ import com.pathdlc.digger.warden.WardenCommandHandler;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.option.KeyBinding;
+import org.lwjgl.glfw.GLFW;
 
 public class PathDlcDiggerClient implements ClientModInitializer {
     public static final String MOD_ID = "pathdlc_digger";
@@ -35,8 +40,14 @@ public class PathDlcDiggerClient implements ClientModInitializer {
     private static final ClanCommandHandler CLAN_COMMANDS = new ClanCommandHandler(CLAN);
     private static final WardenCommandHandler WARDEN_COMMANDS = new WardenCommandHandler(WARDEN);
 
+    private static final KeyBinding CLICK_GUI_KEY = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.pathdlc.clickgui", GLFW.GLFW_KEY_RIGHT_SHIFT,
+                    "category.pathdlc"));
+
     @Override
     public void onInitializeClient() {
+        LiquidGlassRenderer.init();
+
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
             if (!message.startsWith(".")) {
                 return true;
@@ -51,6 +62,10 @@ public class PathDlcDiggerClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (CLICK_GUI_KEY.wasPressed()) {
+                client.setScreen(new ClickGuiScreen());
+            }
+
             DIGGER.tick(client);
             FARMS.tick(client);
             CLAN.tick(client);
