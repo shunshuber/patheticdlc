@@ -80,10 +80,8 @@ public class CustomTitleScreen extends Screen {
         renderBackground(context);
         updateParticles();
         renderParticles(context);
-        renderTitle(context, elapsed);
         renderButtons(context, mouseX, mouseY, elapsed);
         renderFooter(context);
-        renderSeparator(context);
     }
 
     private void renderBackground(DrawContext context) {
@@ -119,52 +117,9 @@ public class CustomTitleScreen extends Screen {
         }
     }
 
-    private void renderTitle(DrawContext context, long elapsed) {
-        float titleAlpha = Math.min(1f, openProgress * 1.5f);
-        int titleA = (int) (titleAlpha * 255);
-        if (titleA < 1) return;
-
-        int ty = height / 4;
-
-        int glassY = ty - 16;
-        int glassW = 180;
-        int glassH = 50;
-        int glassX = width / 2 - glassW / 2;
-
-        if (LiquidGlassRenderer.isReady()) {
-            LiquidGlassRenderer.drawGlassPanel(context,
-                    glassX, glassY, glassW, glassH, 12f, 0f);
-        } else {
-            context.fill(glassX, glassY, glassX + glassW, glassY + glassH,
-                    0x44101028);
-            context.fill(glassX, glassY, glassX + glassW, glassY + 1,
-                    0x22FFFFFF);
-        }
-
-        context.getMatrices().push();
-        context.getMatrices().translate(width / 2.0, ty, 0);
-        context.getMatrices().scale(2.5f, 2.5f, 1f);
-        context.getMatrices().translate(-width / 2.0, -ty, 0);
-
-        String title = "PathDLC";
-        int tw = textRenderer.getWidth(title);
-        int titleColor = (titleA << 24) | 0xFFFFFF;
-        context.drawText(textRenderer, Text.literal(title),
-                width / 2 - tw / 2, ty, titleColor, true);
-
-        context.getMatrices().pop();
-
-        String sub = "Digger Client";
-        int subW = textRenderer.getWidth(sub);
-        int subA = (int) (titleAlpha * 140);
-        int subColor = (subA << 24) | 0xAABBDD;
-        context.drawText(textRenderer, Text.literal(sub),
-                width / 2 - subW / 2, ty + 22, subColor, true);
-    }
-
     private void renderButtons(DrawContext context, int mouseX, int mouseY,
                                 long elapsed) {
-        int startY = height / 2 + 5;
+        int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2;
         int cx = width / 2 - BTN_WIDTH / 2;
 
         for (int i = 0; i < LABELS.length; i++) {
@@ -240,15 +195,6 @@ public class CustomTitleScreen extends Screen {
         }
     }
 
-    private void renderSeparator(DrawContext context) {
-        int sepY = height / 2 - 8;
-        int sepW = 120;
-        int sepX = width / 2 - sepW / 2;
-        int sepA = (int) (openProgress * 30);
-        int sepColor = (sepA << 24) | 0x8899BB;
-        context.fill(sepX, sepY, sepX + sepW, sepY + 1, sepColor);
-    }
-
     private void renderFooter(DrawContext context) {
         int footA = (int) (openProgress * 100);
         int footColor = (footA << 24) | 0x667788;
@@ -271,7 +217,7 @@ public class CustomTitleScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            int startY = height / 2 + 5;
+            int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2;
             int cx = width / 2 - BTN_WIDTH / 2;
 
             for (int i = 0; i < 4; i++) {
