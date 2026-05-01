@@ -3,7 +3,6 @@ package com.pathdlc.digger.gui;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.screen.option.OptionsScreen;
 import net.minecraft.client.gui.screen.world.SelectWorldScreen;
@@ -15,13 +14,12 @@ public class CustomTitleScreen extends Screen {
     private static final Identifier BACKGROUND =
             Identifier.of("pathdlc_digger", "textures/gui/background.png");
 
-    private static final int BTN_WIDTH = 200;
-    private static final int BTN_HEIGHT = 24;
-    private static final int BTN_GAP = 4;
-    private static final float BTN_RADIUS = 8f;
+    private static final int BTN_WIDTH = 220;
+    private static final int BTN_HEIGHT = 28;
+    private static final int BTN_GAP = 6;
 
     private float openProgress;
-    private final float[] btnHover = new float[5];
+    private final float[] btnHover = new float[4];
 
     public CustomTitleScreen() {
         super(Text.literal("PathDLC"));
@@ -35,8 +33,6 @@ public class CustomTitleScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        LiquidGlassRenderer.captureAndBlur();
-
         openProgress += (1.0f - openProgress) * 0.1f;
         if (openProgress > 0.99f) openProgress = 1.0f;
 
@@ -44,44 +40,47 @@ public class CustomTitleScreen extends Screen {
         renderTitle(context);
         renderButtons(context, mouseX, mouseY);
         renderFooter(context);
-
-        super.render(context, mouseX, mouseY, delta);
     }
 
     private void renderBackground(DrawContext context) {
+        context.fill(0, 0, width, height, 0xFF0A0A14);
+
         context.drawTexture(RenderLayer::getGuiTextured, BACKGROUND,
                 0, 0, 0, 0, width, height, width, height);
 
-        int overlayAlpha = (int) (100 * openProgress);
-        int overlayColor = (overlayAlpha << 24) | 0x080810;
-        context.fill(0, 0, width, height, overlayColor);
+        context.fill(0, 0, width, height, 0xCC0A0A14);
+
+        int glowAlpha = (int) (15 * openProgress);
+        int glowColor = (glowAlpha << 24) | 0x4488FF;
+        int cx = width / 2;
+        int cy = height / 2;
+        int r = 200;
+        context.fill(cx - r, cy - r, cx + r, cy + r, glowColor);
     }
 
     private void renderTitle(DrawContext context) {
-        String title = "PathDLC";
-        int tw = textRenderer.getWidth(title) * 2;
-        int tx = width / 2 - tw / 2;
-        int ty = height / 4 - 20;
+        int ty = height / 4 - 10;
 
         context.getMatrices().push();
         context.getMatrices().translate(width / 2.0, ty, 0);
-        context.getMatrices().scale(2f, 2f, 1f);
+        context.getMatrices().scale(3f, 3f, 1f);
         context.getMatrices().translate(-width / 2.0, -ty, 0);
 
+        String title = "PathDLC";
+        int tw = textRenderer.getWidth(title);
         context.drawText(textRenderer, Text.literal(title),
-                width / 2 - textRenderer.getWidth(title) / 2,
-                ty, 0xFFFFFFFF, true);
+                width / 2 - tw / 2, ty, 0xFFFFFFFF, true);
 
         context.getMatrices().pop();
 
-        String subtitle = "Digger Mod";
+        String subtitle = "Digger Mod v1.0.0";
         int stw = textRenderer.getWidth(subtitle);
         context.drawText(textRenderer, Text.literal(subtitle),
-                width / 2 - stw / 2, ty + 24, 0xFF999999, true);
+                width / 2 - stw / 2, ty + 30, 0xFF888888, true);
     }
 
     private void renderButtons(DrawContext context, int mouseX, int mouseY) {
-        int startY = height / 2 - 20;
+        int startY = height / 2 + 10;
         int cx = width / 2 - BTN_WIDTH / 2;
 
         String[] labels = {"Singleplayer", "Multiplayer", "Settings", "Quit Game"};
@@ -94,10 +93,9 @@ public class CustomTitleScreen extends Screen {
             float target = hovered ? 1f : 0f;
             btnHover[i] += (target - btnHover[i]) * 0.2f;
 
-            drawGlassButton(context, cx, btnY, BTN_WIDTH, BTN_HEIGHT,
-                    BTN_RADIUS, btnHover[i], false);
+            drawButton(context, cx, btnY, BTN_WIDTH, BTN_HEIGHT, btnHover[i]);
 
-            int textColor = hovered ? 0xFFFFFFFF : 0xFFDDDDDD;
+            int textColor = hovered ? 0xFFFFFFFF : 0xFFCCCCCC;
             int labelW = textRenderer.getWidth(labels[i]);
             context.drawText(textRenderer, Text.literal(labels[i]),
                     cx + BTN_WIDTH / 2 - labelW / 2,
@@ -105,36 +103,44 @@ public class CustomTitleScreen extends Screen {
         }
     }
 
-    private void drawGlassButton(DrawContext context, int x, int y, int w,
-                                   int h, float radius, float hover, boolean active) {
-        if (LiquidGlassRenderer.isReady()) {
-            LiquidGlassRenderer.drawGlassPanel(context, x, y, w, h, radius, hover);
-        } else {
-            int bgAlpha = (int) (160 + 30 * hover);
-            int bg = (bgAlpha << 24) | 0x1A1A2E;
-            context.fill(x, y, x + w, y + h, bg);
-            context.fill(x, y, x + w, y + 1, 0x44FFFFFF);
-            context.fill(x, y, x + 1, y + h, 0x22FFFFFF);
-            context.fill(x + w - 1, y, x + w, y + h, 0x22FFFFFF);
-            context.fill(x, y + h - 1, x + w, y + h, 0x11FFFFFF);
+    private void drawButton(DrawContext context, int x, int y, int w, int h,
+                              float hover) {
+        int bgAlpha = (int) (180 + 50 * hover);
+        int bg = (bgAlpha << 24) | 0x14142A;
+        context.fill(x, y, x + w, y + h, bg);
+
+        int rimAlpha = (int) (80 + 60 * hover);
+        int rimTop = (rimAlpha << 24) | 0xFFFFFF;
+        int rimSide = ((rimAlpha / 2) << 24) | 0xFFFFFF;
+        int rimBottom = ((rimAlpha / 4) << 24) | 0xFFFFFF;
+
+        context.fill(x, y, x + w, y + 1, rimTop);
+        context.fill(x, y, x + 1, y + h, rimSide);
+        context.fill(x + w - 1, y, x + w, y + h, rimSide);
+        context.fill(x, y + h - 1, x + w, y + h, rimBottom);
+
+        if (hover > 0.01f) {
+            int accentAlpha = (int) (20 * hover);
+            int accent = (accentAlpha << 24) | 0x4488FF;
+            context.fill(x + 1, y + 1, x + w - 1, y + h - 1, accent);
         }
     }
 
     private void renderFooter(DrawContext context) {
-        String version = "PathDLC Digger v1.0.0";
-        context.drawText(textRenderer, Text.literal(version),
-                4, height - 12, 0xFF666666, false);
+        String left = "PathDLC Digger";
+        context.drawText(textRenderer, Text.literal(left),
+                6, height - 14, 0xFF555555, false);
 
-        String mc = "Minecraft 1.21.4";
-        int mcw = textRenderer.getWidth(mc);
-        context.drawText(textRenderer, Text.literal(mc),
-                width - mcw - 4, height - 12, 0xFF666666, false);
+        String right = "Minecraft 1.21.4";
+        int rw = textRenderer.getWidth(right);
+        context.drawText(textRenderer, Text.literal(right),
+                width - rw - 6, height - 14, 0xFF555555, false);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            int startY = height / 2 - 20;
+            int startY = height / 2 + 10;
             int cx = width / 2 - BTN_WIDTH / 2;
 
             for (int i = 0; i < 4; i++) {
