@@ -1,6 +1,10 @@
 {
   "providers": [
     {
+      "type": "reference",
+      "id": "minecraft:default"
+    },
+    {
       "type": "ttf",
       "file": "pathdlc_digger:comfortaa.ttf",
       "shift": [0, 1],

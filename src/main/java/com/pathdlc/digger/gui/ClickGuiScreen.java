@@ -128,7 +128,7 @@ public class ClickGuiScreen extends Screen {
         drawStyledText(context, name, (int) (catX + 60 - textWidth / 2),
                 (int) (catY + 6), 0xFFFFFFFF);
 
-        String arrow = cat.isCollapsed() ? "\u25B6" : "\u25BC";
+        String arrow = cat.isCollapsed() ? ">" : "v";
         drawStyledText(context, arrow, (int) (catX + 105), (int) (catY + 6),
                 0xFFFFFFFF);
 
@@ -183,7 +183,7 @@ public class ClickGuiScreen extends Screen {
                 rowY += BUTTON_HEIGHT;
             }
 
-            drawStyledText(context, "\u25CF " + cat.getName(),
+            drawStyledText(context, "- " + cat.getName(),
                     (int) (px + 8), (int) (rowY + 5), 0xFFAAAAAA);
             rowY += BUTTON_HEIGHT;
 
@@ -232,7 +232,7 @@ public class ClickGuiScreen extends Screen {
 
         drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 8f, 0f, false);
 
-        drawStyledText(context, "\u2699 Settings", (int) (sx + 10),
+        drawStyledText(context, "[*] Settings", (int) (sx + 10),
                 (int) (sy + 6), 0xFFFFFFFF);
 
         context.fill((int) sx, (int) (sy + HEADER_HEIGHT),
