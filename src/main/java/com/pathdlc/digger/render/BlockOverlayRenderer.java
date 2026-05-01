@@ -1,15 +1,10 @@
 package com.pathdlc.digger.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.Tessellator;
+import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
@@ -17,14 +12,31 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 
-import org.lwjgl.opengl.GL11;
-
 public final class BlockOverlayRenderer {
-    private static final int ANIMATION_FRAMES = 8;
-    private static final int TICKS_PER_FRAME = 3;
+    private static final Identifier[] OVERLAY_TEXTURES = {
+            Identifier.of("pathdlc_digger", "textures/gui/overlay_kitten.png"),
+            Identifier.of("pathdlc_digger", "textures/gui/overlay_sky.png"),
+            Identifier.of("pathdlc_digger", "textures/gui/overlay_devil.png"),
+    };
+    private static int currentTexture;
+    private static long lastSwitch;
     private static int tick;
+
+    public static void cycleTexture() {
+        currentTexture = (currentTexture + 1) % OVERLAY_TEXTURES.length;
+    }
+
+    public static String getTextureName() {
+        return switch (currentTexture) {
+            case 0 -> "Kitten";
+            case 1 -> "Sky";
+            case 2 -> "Devil";
+            default -> "Unknown";
+        };
+    }
 
     public static void render(WorldRenderContext context) {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -35,6 +47,7 @@ public final class BlockOverlayRenderer {
 
         BlockHitResult hit = (BlockHitResult) mc.crosshairTarget;
         BlockPos pos = hit.getBlockPos();
+        Direction face = hit.getSide();
 
         MatrixStack matrices = context.matrixStack();
         VertexConsumerProvider consumers = context.consumers();
@@ -43,11 +56,11 @@ public final class BlockOverlayRenderer {
         }
 
         Vec3d camera = context.camera().getPos();
-
         tick++;
-        float pulse = 0.5f + 0.3f * (float) Math.sin(tick * 0.08);
+
+        float pulse = 0.6f + 0.2f * (float) Math.sin(tick * 0.1);
         float r = 0.4f;
-        float g = 0.7f + 0.15f * (float) Math.sin(tick * 0.05);
+        float g = 0.7f + 0.15f * (float) Math.sin(tick * 0.06);
         float b = 1.0f;
 
         Box box = new Box(pos).expand(0.003);
@@ -65,8 +78,8 @@ public final class BlockOverlayRenderer {
         VertexRendering.drawBox(
                 matrices,
                 consumers.getBuffer(RenderLayer.getLines()),
-                box.expand(0.01),
-                r * 0.6f, g * 0.6f, b * 0.6f, pulse * 0.4f
+                box.expand(0.008),
+                r * 0.5f, g * 0.5f, b * 0.5f, pulse * 0.3f
         );
 
         matrices.pop();

@@ -1,6 +1,5 @@
 package com.pathdlc.digger.render;
 
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.util.Identifier;
@@ -11,23 +10,27 @@ import java.util.List;
 import java.util.Random;
 
 public final class HitEffectsRenderer {
-    private static final Identifier HIT_STARS = Identifier.of("pathdlc_digger",
-            "textures/gui/hit_stars.png");
-    private static final int FRAME_COUNT = 8;
-    private static final int FRAME_SIZE = 16;
-    private static final int SHEET_WIDTH = 128;
-    private static final int SHEET_HEIGHT = 16;
+    private static final Identifier HIT_STAR = Identifier.of("pathdlc_digger",
+            "textures/gui/hit_star.png");
+    private static final int TEX_SIZE = 32;
 
     private static final List<HitStar> stars = new ArrayList<>();
     private static final Random RANDOM = new Random();
 
     public static void spawnAt(double screenX, double screenY) {
-        int count = 4 + RANDOM.nextInt(4);
+        int count = 5 + RANDOM.nextInt(4);
         for (int i = 0; i < count; i++) {
-            double vx = (RANDOM.nextDouble() - 0.5) * 6.0;
-            double vy = (RANDOM.nextDouble() - 0.5) * 6.0 - 2.0;
-            float scale = 0.8f + RANDOM.nextFloat() * 1.2f;
-            stars.add(new HitStar(screenX + vx * 4, screenY + vy * 4, vx, vy, scale));
+            double angle = RANDOM.nextDouble() * Math.PI * 2;
+            double speed = 2.0 + RANDOM.nextDouble() * 5.0;
+            double vx = Math.cos(angle) * speed;
+            double vy = Math.sin(angle) * speed - 1.5;
+            float scale = 0.4f + RANDOM.nextFloat() * 0.8f;
+            float rotation = RANDOM.nextFloat() * 360f;
+            float rotSpeed = (RANDOM.nextFloat() - 0.5f) * 15f;
+            stars.add(new HitStar(
+                    screenX + (RANDOM.nextDouble() - 0.5) * 20,
+                    screenY + (RANDOM.nextDouble() - 0.5) * 20,
+                    vx, vy, scale, rotation, rotSpeed));
         }
     }
 
@@ -43,21 +46,27 @@ public final class HitEffectsRenderer {
                 continue;
             }
 
-            int frame = Math.min(s.frame(), FRAME_COUNT - 1);
-            float u = frame * FRAME_SIZE;
-            int size = (int) (FRAME_SIZE * s.scale);
-            int alpha = (int) (255 * s.alpha());
+            int drawSize = (int) (TEX_SIZE * s.scale);
+            if (drawSize < 2) continue;
 
-            if (alpha > 10 && size > 0) {
-                context.drawTexture(
-                        RenderLayer::getGuiTextured,
-                        HIT_STARS,
-                        (int) s.x - FRAME_SIZE / 2, (int) s.y - FRAME_SIZE / 2,
-                        u, 0,
-                        FRAME_SIZE, FRAME_SIZE,
-                        SHEET_WIDTH, SHEET_HEIGHT
-                );
-            }
+            int x = (int) s.x - drawSize / 2;
+            int y = (int) s.y - drawSize / 2;
+
+            context.getMatrices().push();
+            context.getMatrices().translate(s.x, s.y, 0);
+            context.getMatrices().scale(s.scale * s.alpha(), s.scale * s.alpha(), 1f);
+            context.getMatrices().translate(-s.x, -s.y, 0);
+
+            context.drawTexture(
+                    RenderLayer::getGuiTextured,
+                    HIT_STAR,
+                    (int) s.x - TEX_SIZE / 2, (int) s.y - TEX_SIZE / 2,
+                    0, 0,
+                    TEX_SIZE, TEX_SIZE,
+                    TEX_SIZE, TEX_SIZE
+            );
+
+            context.getMatrices().pop();
         }
     }
 
@@ -67,24 +76,28 @@ public final class HitEffectsRenderer {
 
     private static class HitStar {
         double x, y, vx, vy;
-        float scale;
+        float scale, rotation, rotSpeed;
         int age;
-        static final int MAX_AGE = 20;
+        static final int MAX_AGE = 25;
 
-        HitStar(double x, double y, double vx, double vy, float scale) {
+        HitStar(double x, double y, double vx, double vy,
+                float scale, float rotation, float rotSpeed) {
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
             this.scale = scale;
+            this.rotation = rotation;
+            this.rotSpeed = rotSpeed;
         }
 
         void tick() {
             x += vx;
             y += vy;
-            vy += 0.3;
-            vx *= 0.92;
-            vy *= 0.92;
+            vy += 0.25;
+            vx *= 0.95;
+            vy *= 0.95;
+            rotation += rotSpeed;
             age++;
         }
 
@@ -92,12 +105,9 @@ public final class HitEffectsRenderer {
             return age >= MAX_AGE;
         }
 
-        int frame() {
-            return age * FRAME_COUNT / MAX_AGE;
-        }
-
         float alpha() {
-            return Math.max(0, 1.0f - (float) age / MAX_AGE);
+            if (age < 3) return age / 3.0f;
+            return Math.max(0, 1.0f - (float) (age - 3) / (MAX_AGE - 3));
         }
     }
 

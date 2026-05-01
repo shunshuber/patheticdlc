@@ -1,5 +1,6 @@
 package com.pathdlc.digger.gui;
 
+import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -30,6 +31,10 @@ public class ClickGuiScreen extends Screen {
     private float singlePanelX = 10;
     private float singlePanelY = 30;
 
+    private float openProgress;
+    private long openTime;
+    private long renderTick;
+
     public ClickGuiScreen() {
         super(Text.literal("ClickGUI"));
     }
@@ -37,6 +42,8 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        openProgress = 0f;
+        openTime = System.currentTimeMillis();
     }
 
     public void initCategories(
@@ -90,6 +97,19 @@ public class ClickGuiScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         LiquidGlassRenderer.captureAndBlur();
+        renderTick++;
+
+        float targetOpen = 1.0f;
+        openProgress += (targetOpen - openProgress) * 0.12f;
+        if (openProgress > 0.99f) openProgress = 1.0f;
+
+        float scale = 0.85f + 0.15f * easeOutBack(openProgress);
+        float alpha = openProgress;
+
+        context.getMatrices().push();
+        context.getMatrices().translate(width / 2.0, height / 2.0, 0);
+        context.getMatrices().scale(scale, scale, 1f);
+        context.getMatrices().translate(-width / 2.0, -height / 2.0, 0);
 
         if (GuiSettings.getLayout() == GuiSettings.Layout.COLUMNS) {
             renderColumnsLayout(context, mouseX, mouseY);
@@ -99,7 +119,38 @@ public class ClickGuiScreen extends Screen {
 
         renderSettingsPanel(context, mouseX, mouseY);
 
+        renderLiquidDecor(context);
+
+        context.getMatrices().pop();
+
         super.render(context, mouseX, mouseY, delta);
+    }
+
+    private static float easeOutBack(float t) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1;
+        return 1 + c3 * (float) Math.pow(t - 1, 3) + c1 * (float) Math.pow(t - 1, 2);
+    }
+
+    private void renderLiquidDecor(DrawContext context) {
+        float time = renderTick * 0.03f;
+        GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
+        int accentAlpha = 0x18000000 | (accent.textColor & 0x00FFFFFF);
+
+        for (int i = 0; i < 3; i++) {
+            float phase = i * 2.1f;
+            float waveY = height * 0.3f + i * 40
+                    + (float) Math.sin(time + phase) * 15f;
+            float waveX = 20 + (float) Math.sin(time * 0.7 + phase) * 10f;
+
+            for (int x = 0; x < width; x += 4) {
+                float localY = waveY + (float) Math.sin(time + x * 0.02f + phase) * 6f;
+                int dotAlpha = (int) (20 + 10 * Math.sin(time * 2 + x * 0.05 + phase));
+                dotAlpha = Math.max(0, Math.min(255, dotAlpha));
+                int color = (dotAlpha << 24) | (accent.textColor & 0x00FFFFFF);
+                context.fill(x, (int) localY, x + 2, (int) localY + 1, color);
+            }
+        }
     }
 
     // ── Columns layout (original) ─────────────────────────
@@ -125,16 +176,27 @@ public class ClickGuiScreen extends Screen {
         drawPanel(context, catX, catY, PANEL_WIDTH, HEADER_HEIGHT,
                 HEADER_RADIUS, cat.hoverAmount, false);
 
-        if (!cat.isCollapsed()) {
+        float ep = cat.getExpandProgress();
+        if (ep > 0.01f) {
             int index = 0;
             for (ModuleButton btn : cat.getModules()) {
                 float btnY = catY + HEADER_HEIGHT + 1 + index * BUTTON_HEIGHT;
-                boolean btnHovered = mouseX >= catX && mouseX <= catX + PANEL_WIDTH
+                boolean btnHovered = ep > 0.5f && mouseX >= catX
+                        && mouseX <= catX + PANEL_WIDTH
                         && mouseY >= btnY && mouseY <= btnY + BUTTON_HEIGHT;
                 btn.updateHover(btnHovered);
 
+                context.getMatrices().push();
+                float btnScale = ep;
+                float btnAlpha = ep;
+                context.getMatrices().translate(catX + PANEL_WIDTH / 2f, btnY, 0);
+                context.getMatrices().scale(1f, btnScale, 1f);
+                context.getMatrices().translate(-(catX + PANEL_WIDTH / 2f), -btnY, 0);
+
                 drawPanel(context, catX, btnY, PANEL_WIDTH, BUTTON_HEIGHT,
                         BUTTON_RADIUS, btn.hoverAmount, btn.getModule().isEnabled());
+
+                context.getMatrices().pop();
                 index++;
             }
         }
@@ -154,7 +216,8 @@ public class ClickGuiScreen extends Screen {
         drawStyledText(context, arrow, (int) (catX + 105), (int) (catY + 6),
                 0xFFFFFFFF);
 
-        if (!cat.isCollapsed()) {
+        float ep = cat.getExpandProgress();
+        if (ep > 0.01f) {
             context.fill((int) catX, (int) (catY + HEADER_HEIGHT),
                     (int) (catX + PANEL_WIDTH), (int) (catY + HEADER_HEIGHT + 1),
                     0x33FFFFFF);
@@ -249,7 +312,7 @@ public class ClickGuiScreen extends Screen {
     private void renderSettingsPanel(DrawContext context, int mouseX, int mouseY) {
         float sx = settingsX();
         float sy = 30;
-        int rows = 6;
+        int rows = 7;
         int panelH = HEADER_HEIGHT + 1 + rows * SETTINGS_ROW + 4;
 
         drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 8f, 0f, false);
@@ -283,6 +346,10 @@ public class ClickGuiScreen extends Screen {
 
         drawSettingsRow(context, sx, rowY, "Fog Density",
                 FogSettings.getDensity().label, 0xFFFFFFFF, mouseX, mouseY);
+        rowY += SETTINGS_ROW;
+
+        drawSettingsRow(context, sx, rowY, "Overlay",
+                BlockOverlayRenderer.getTextureName(), 0xFFFFFFFF, mouseX, mouseY);
         rowY += SETTINGS_ROW;
 
         String modCount = countEnabled() + "/" + countTotal() + " active";
@@ -433,6 +500,12 @@ public class ClickGuiScreen extends Screen {
 
         if (mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW) {
             FogSettings.cycleDensity();
+            return true;
+        }
+        rowY += SETTINGS_ROW;
+
+        if (mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW) {
+            BlockOverlayRenderer.cycleTexture();
             return true;
         }
 
