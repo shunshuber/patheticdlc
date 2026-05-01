@@ -20,6 +20,7 @@ import com.pathdlc.digger.gui.ModuleManager;
 import com.pathdlc.digger.render.BlockESPRenderer;
 import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.HitEffectsRenderer;
+import com.pathdlc.digger.render.PerformanceSettings;
 import com.pathdlc.digger.render.SelectionRenderer;
 import com.pathdlc.digger.selection.SelectionManager;
 import com.pathdlc.digger.util.Chat;
@@ -124,6 +125,7 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             AUTO_CRAFT.tick(client);
             AUTO_SELL.tick(client);
             AUTO_BUY.tick(client);
+            PerformanceSettings.onFrameEnd();
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {

@@ -27,8 +27,7 @@ public final class LiquidGlassRenderer {
     private static boolean initialized;
     private static boolean shadersFailed;
 
-    private static final int BLUR_ITERATIONS = 3;
-    private static final float BLUR_SPREAD = 2.5f;
+    private static long lastCaptureFrame = -1;
 
     private static int uBlurSampler, uBlurDirection;
     private static int uGlassSampler, uGlassScreenSize;
@@ -185,6 +184,8 @@ public final class LiquidGlassRenderer {
     }
 
     public static void captureAndBlur() {
+        if (!PerformanceSettings.useShaders()) return;
+
         if (!initialized && !shadersFailed) {
             init();
         }
@@ -193,6 +194,10 @@ public final class LiquidGlassRenderer {
         }
 
         MinecraftClient mc = MinecraftClient.getInstance();
+        long currentFrame = mc.world != null ? mc.world.getTime() : System.nanoTime() / 16_666_666;
+        if (currentFrame == lastCaptureFrame) return;
+        lastCaptureFrame = currentFrame;
+
         int fbWidth = mc.getWindow().getFramebufferWidth();
         int fbHeight = mc.getWindow().getFramebufferHeight();
 
@@ -204,6 +209,15 @@ public final class LiquidGlassRenderer {
         GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fboA);
         GL30.glBlitFramebuffer(0, 0, fbWidth, fbHeight,
                 0, 0, fbWidth, fbHeight, GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+
+        int blurIter = PerformanceSettings.getBlurIterations();
+        float blurSpread = PerformanceSettings.getBlurSpread();
+
+        if (blurIter <= 0) {
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, mainFbo);
+            GL11.glViewport(0, 0, fbWidth, fbHeight);
+            return;
+        }
 
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
@@ -217,8 +231,8 @@ public final class LiquidGlassRenderer {
         GL30.glBindVertexArray(quadVao);
         GL20.glUniform1i(uBlurSampler, 0);
 
-        for (int i = 0; i < BLUR_ITERATIONS; i++) {
-            float spread = BLUR_SPREAD * (i + 1);
+        for (int i = 0; i < blurIter; i++) {
+            float spread = blurSpread * (i + 1);
 
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fboB);
             GL11.glViewport(0, 0, fbWidth, fbHeight);

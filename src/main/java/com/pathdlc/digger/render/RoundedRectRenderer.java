@@ -147,6 +147,11 @@ public final class RoundedRectRenderer {
 
     public static void draw(DrawContext context, int x, int y, int w, int h,
                              int tl, int tr, int bl, int br, int argb) {
+        if (!PerformanceSettings.useRoundedShader()) {
+            context.fill(x, y, x + w, y + h, argb);
+            return;
+        }
+
         init();
 
         if (failed || !initialized) {

@@ -1,6 +1,7 @@
 package com.pathdlc.digger.gui;
 
 import com.pathdlc.digger.render.LiquidGlassRenderer;
+import com.pathdlc.digger.render.PerformanceSettings;
 import com.pathdlc.digger.render.RoundedRectRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -104,7 +105,8 @@ public class CustomTitleScreen extends Screen {
     }
 
     private void renderParticles(DrawContext context) {
-        for (int i = 0; i < PARTICLE_COUNT; i++) {
+        int maxParticles = Math.min(PARTICLE_COUNT, PerformanceSettings.getParticleCount());
+        for (int i = 0; i < maxParticles; i++) {
             int x = (int)px[i];
             int y = (int)py[i];
             int s = Math.max(1, (int)psz[i]);
@@ -129,7 +131,7 @@ public class CustomTitleScreen extends Screen {
         int glassX = width / 2 - glassW / 2;
         int glassY = titleY - 6;
 
-        if (LiquidGlassRenderer.isReady()) {
+        if (PerformanceSettings.useGlassEffect() && LiquidGlassRenderer.isReady()) {
             LiquidGlassRenderer.drawGlassPanel(context,
                     glassX, glassY, glassW, glassH, 15f, 0f,
                     0.12f, 0.3f, 0.6f, 1.0f);
@@ -180,7 +182,7 @@ public class CustomTitleScreen extends Screen {
 
             int drawX = cx + offsetX;
 
-            if (LiquidGlassRenderer.isReady()) {
+            if (PerformanceSettings.useGlassEffect() && LiquidGlassRenderer.isReady()) {
                 LiquidGlassRenderer.drawGlassPanel(context,
                         drawX, btnY, BTN_WIDTH, BTN_HEIGHT,
                         BTN_RADIUS, btnHover[i],

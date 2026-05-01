@@ -1,6 +1,7 @@
 package com.pathdlc.digger.gui;
 
 import com.pathdlc.digger.render.LiquidGlassRenderer;
+import com.pathdlc.digger.render.PerformanceSettings;
 import com.pathdlc.digger.render.RoundedRectRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -193,7 +194,7 @@ public class ClickGuiScreen extends Screen {
                                int cx, int cy, int colH,
                                int mouseX, int mouseY,
                                GuiSettings.AccentColor accent, float alpha) {
-        if (LiquidGlassRenderer.isReady()) {
+        if (PerformanceSettings.useGlassEffect() && LiquidGlassRenderer.isReady()) {
             LiquidGlassRenderer.drawGlassPanel(context,
                     cx, cy, COL_WIDTH, colH, CORNER_R, 0f,
                     0.08f, accent.r, accent.g, accent.b);
