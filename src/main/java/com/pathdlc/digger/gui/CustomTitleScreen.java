@@ -1,6 +1,7 @@
 package com.pathdlc.digger.gui;
 
 import com.pathdlc.digger.render.LiquidGlassRenderer;
+import com.pathdlc.digger.render.RoundedRectRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
@@ -14,10 +15,10 @@ public class CustomTitleScreen extends Screen {
     private static final Identifier BACKGROUND =
             Identifier.of("pathdlc_digger", "textures/gui/background.png");
 
-    private static final int BTN_WIDTH = 200;
-    private static final int BTN_HEIGHT = 24;
-    private static final int BTN_GAP = 4;
-    private static final float BTN_RADIUS = 8f;
+    private static final int BTN_WIDTH = 220;
+    private static final int BTN_HEIGHT = 28;
+    private static final int BTN_GAP = 6;
+    private static final int BTN_RADIUS = 14;
 
     private static final String[] LABELS = {
             "Singleplayer", "Multiplayer", "Settings", "Quit Game"
@@ -28,13 +29,13 @@ public class CustomTitleScreen extends Screen {
     private final float[] btnSlide = new float[4];
     private long startTime;
 
-    private static final int PARTICLE_COUNT = 30;
-    private final float[] particleX = new float[PARTICLE_COUNT];
-    private final float[] particleY = new float[PARTICLE_COUNT];
-    private final float[] particleSpeedX = new float[PARTICLE_COUNT];
-    private final float[] particleSpeedY = new float[PARTICLE_COUNT];
-    private final float[] particleSize = new float[PARTICLE_COUNT];
-    private final float[] particleAlpha = new float[PARTICLE_COUNT];
+    private static final int PARTICLE_COUNT = 40;
+    private final float[] px = new float[PARTICLE_COUNT];
+    private final float[] py = new float[PARTICLE_COUNT];
+    private final float[] pvx = new float[PARTICLE_COUNT];
+    private final float[] pvy = new float[PARTICLE_COUNT];
+    private final float[] psz = new float[PARTICLE_COUNT];
+    private final float[] pa = new float[PARTICLE_COUNT];
 
     public CustomTitleScreen() {
         super(Text.literal("PathDLC"));
@@ -59,166 +60,180 @@ public class CustomTitleScreen extends Screen {
     }
 
     private void resetParticle(int i, boolean randomY) {
-        particleX[i] = (float) (Math.random() * 2000);
-        particleY[i] = randomY ? (float) (Math.random() * 1200)
-                : -10 - (float) (Math.random() * 50);
-        particleSpeedX[i] = (float) (Math.random() * 0.3 - 0.15);
-        particleSpeedY[i] = (float) (Math.random() * 0.4 + 0.1);
-        particleSize[i] = (float) (Math.random() * 3 + 1);
-        particleAlpha[i] = (float) (Math.random() * 0.3 + 0.05);
+        px[i] = (float)(Math.random() * 2000);
+        py[i] = randomY ? (float)(Math.random() * 1200) : -10f - (float)(Math.random() * 50);
+        pvx[i] = (float)(Math.random() * 0.25 - 0.125);
+        pvy[i] = (float)(Math.random() * 0.3 + 0.08);
+        psz[i] = (float)(Math.random() * 2.5 + 1);
+        pa[i] = (float)(Math.random() * 0.25 + 0.05);
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         LiquidGlassRenderer.captureAndBlur();
 
-        openProgress += (1.0f - openProgress) * 0.06f;
-        if (openProgress > 0.99f) openProgress = 1.0f;
+        openProgress += (1f - openProgress) * 0.06f;
+        if (openProgress > 0.99f) openProgress = 1f;
 
         long elapsed = System.currentTimeMillis() - startTime;
 
         renderBackground(context);
         updateParticles();
         renderParticles(context);
+        renderTitle(context, elapsed);
         renderButtons(context, mouseX, mouseY, elapsed);
         renderFooter(context);
     }
 
     private void renderBackground(DrawContext context) {
-        context.fill(0, 0, width, height, 0xFF080810);
-
+        context.fill(0, 0, width, height, 0xFF060610);
         context.drawTexture(RenderLayer::getGuiTextured, BACKGROUND,
                 0, 0, 0, 0, width, height, width, height);
-
-        context.fill(0, 0, width, height, 0xB0080810);
+        context.fill(0, 0, width, height, 0xAA060610);
     }
 
     private void updateParticles() {
         for (int i = 0; i < PARTICLE_COUNT; i++) {
-            particleX[i] += particleSpeedX[i];
-            particleY[i] += particleSpeedY[i];
-            if (particleY[i] > height + 20 || particleX[i] < -20
-                    || particleX[i] > width + 20) {
+            px[i] += pvx[i];
+            py[i] += pvy[i];
+            if (py[i] > height + 20 || px[i] < -20 || px[i] > width + 20) {
                 resetParticle(i, false);
-                particleX[i] = (float) (Math.random() * width);
+                px[i] = (float)(Math.random() * width);
             }
         }
     }
 
     private void renderParticles(DrawContext context) {
         for (int i = 0; i < PARTICLE_COUNT; i++) {
-            int px = (int) particleX[i];
-            int py = (int) particleY[i];
-            int s = (int) particleSize[i];
-            int a = (int) (particleAlpha[i] * 255 * openProgress);
+            int x = (int)px[i];
+            int y = (int)py[i];
+            int s = Math.max(1, (int)psz[i]);
+            int a = (int)(pa[i] * 255 * openProgress);
             if (a < 1) continue;
-            int color = (a << 24) | 0xCCDDFF;
-            context.fill(px, py, px + s, py + s, color);
+            RoundedRectRenderer.draw(context, x, y, s * 2, s * 2, s,
+                    (a << 24) | 0x99BBFF);
         }
+    }
+
+    private void renderTitle(DrawContext context, long elapsed) {
+        float titleProgress = Math.min(1f, elapsed / 600f) * openProgress;
+        if (titleProgress < 0.01f) return;
+
+        String title = "PathDLC";
+        int titleW = textRenderer.getWidth(title) * 3;
+        int titleX = width / 2 - titleW / 6;
+        int titleY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2 - 50;
+
+        int glassW = titleW / 3 + 40;
+        int glassH = 30;
+        int glassX = width / 2 - glassW / 2;
+        int glassY = titleY - 6;
+
+        if (LiquidGlassRenderer.isReady()) {
+            LiquidGlassRenderer.drawGlassPanel(context,
+                    glassX, glassY, glassW, glassH, 15f, 0f,
+                    0.12f, 0.3f, 0.6f, 1.0f);
+        } else {
+            RoundedRectRenderer.draw(context, glassX, glassY, glassW, glassH,
+                    15, 0x88101830);
+        }
+
+        int titleA = (int)(titleProgress * 255);
+        int titleColor = (titleA << 24) | 0xFFFFFF;
+
+        context.getMatrices().push();
+        context.getMatrices().scale(3f, 3f, 1f);
+        context.drawText(textRenderer, Text.literal(title),
+                titleX / 3, titleY / 3, titleColor, true);
+        context.getMatrices().pop();
+
+        int subtitleA = (int)(titleProgress * 120);
+        String subtitle = "Digger v1.21.4";
+        int subW = textRenderer.getWidth(subtitle);
+        context.drawText(textRenderer, Text.literal(subtitle),
+                width / 2 - subW / 2, titleY + 22,
+                (subtitleA << 24) | 0x8899CC, false);
     }
 
     private void renderButtons(DrawContext context, int mouseX, int mouseY,
                                 long elapsed) {
-        int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2;
+        int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2 + 10;
         int cx = width / 2 - BTN_WIDTH / 2;
 
         for (int i = 0; i < LABELS.length; i++) {
-            float delay = i * 80f;
+            float delay = i * 100f;
             float slideTarget = elapsed > delay ? 1f : 0f;
-            btnSlide[i] += (slideTarget - btnSlide[i]) * 0.12f;
+            btnSlide[i] += (slideTarget - btnSlide[i]) * 0.1f;
 
             float slide = btnSlide[i];
             if (slide < 0.01f) continue;
 
             int btnY = startY + i * (BTN_HEIGHT + BTN_GAP);
-            int offsetX = (int) ((1f - slide) * 60);
+            int offsetX = (int)((1f - slide) * 80);
+            float alphaF = slide * openProgress;
 
             boolean hovered = slide > 0.5f
                     && mouseX >= cx && mouseX <= cx + BTN_WIDTH
                     && mouseY >= btnY && mouseY <= btnY + BTN_HEIGHT;
             float hTarget = hovered ? 1f : 0f;
-            btnHover[i] += (hTarget - btnHover[i]) * 0.18f;
+            btnHover[i] += (hTarget - btnHover[i]) * 0.15f;
 
             int drawX = cx + offsetX;
-            int alphaScale = (int) (slide * 255);
 
             if (LiquidGlassRenderer.isReady()) {
                 LiquidGlassRenderer.drawGlassPanel(context,
                         drawX, btnY, BTN_WIDTH, BTN_HEIGHT,
-                        BTN_RADIUS, btnHover[i]);
+                        BTN_RADIUS, btnHover[i],
+                        0.05f + btnHover[i] * 0.1f, 0.3f, 0.6f, 1.0f);
             } else {
-                drawFallbackButton(context, drawX, btnY,
-                        BTN_WIDTH, BTN_HEIGHT, btnHover[i], alphaScale);
+                int bgA = (int)(alphaF * (160 + 40 * btnHover[i]));
+                RoundedRectRenderer.draw(context, drawX, btnY,
+                        BTN_WIDTH, BTN_HEIGHT, BTN_RADIUS,
+                        (bgA << 24) | 0x101830);
             }
 
-            int textA = Math.min(255, alphaScale);
-            int textColor;
-            if (hovered) {
-                textColor = (textA << 24) | 0xFFFFFF;
-            } else {
-                textColor = (textA << 24) | 0xCCDDEE;
+            if (btnHover[i] > 0.01f) {
+                int glowA = (int)(btnHover[i] * 25 * alphaF);
+                RoundedRectRenderer.draw(context, drawX + 2, btnY + 2,
+                        BTN_WIDTH - 4, BTN_HEIGHT - 4, BTN_RADIUS - 2,
+                        (glowA << 24) | 0x4488CC);
             }
 
+            int textA = (int)(alphaF * 255);
+            int textColor = hovered ? (textA << 24) | 0xFFFFFF
+                    : (textA << 24) | 0xCCDDEE;
             int labelW = textRenderer.getWidth(LABELS[i]);
             context.drawText(textRenderer, Text.literal(LABELS[i]),
                     drawX + BTN_WIDTH / 2 - labelW / 2,
                     btnY + BTN_HEIGHT / 2 - 4, textColor, true);
 
             if (btnHover[i] > 0.01f) {
-                int lineA = (int) (btnHover[i] * 120);
-                int lineColor = (lineA << 24) | 0x6699CC;
-                int lineW = (int) ((BTN_WIDTH - 8) * btnHover[i]);
-                context.fill(drawX + 4, btnY + BTN_HEIGHT - 3,
-                        drawX + 4 + lineW,
-                        btnY + BTN_HEIGHT - 2, lineColor);
+                int lineA = (int)(btnHover[i] * 100 * alphaF);
+                int lineW = (int)((BTN_WIDTH - BTN_RADIUS * 2) * btnHover[i]);
+                int lineX = drawX + BTN_WIDTH / 2 - lineW / 2;
+                RoundedRectRenderer.draw(context, lineX, btnY + BTN_HEIGHT - 3,
+                        lineW, 2, 1, (lineA << 24) | 0x6699DD);
             }
         }
     }
 
-    private void drawFallbackButton(DrawContext context, int x, int y,
-                                      int w, int h, float hover,
-                                      int alphaScale) {
-        int bgA = (int) (Math.min(255, alphaScale) * (0.65f + 0.15f * hover));
-        int bg = (bgA << 24) | 0x10102A;
-        context.fill(x, y, x + w, y + h, bg);
-
-        int rimA = (int) (Math.min(255, alphaScale) * (0.25f + 0.2f * hover));
-        int rimTop = (rimA << 24) | 0xAABBDD;
-        int rimSide = ((rimA / 2) << 24) | 0x8899BB;
-        context.fill(x, y, x + w, y + 1, rimTop);
-        context.fill(x, y + 1, x + 1, y + h, rimSide);
-        context.fill(x + w - 1, y + 1, x + w, y + h, rimSide);
-
-        if (hover > 0.01f) {
-            int glowA = (int) (hover * 15);
-            int glow = (glowA << 24) | 0x4477AA;
-            context.fill(x + 1, y + 1, x + w - 1, y + h - 1, glow);
-        }
-    }
-
     private void renderFooter(DrawContext context) {
-        int footA = (int) (openProgress * 100);
-        int footColor = (footA << 24) | 0x667788;
+        int a = (int)(openProgress * 80);
+        int color = (a << 24) | 0x667788;
 
-        String left = "PathDLC Digger";
-        context.drawText(textRenderer, Text.literal(left),
-                6, height - 14, footColor, false);
+        context.drawText(textRenderer, Text.literal("PathDLC Digger"),
+                6, height - 14, color, false);
 
         String right = "Minecraft 1.21.4";
         int rw = textRenderer.getWidth(right);
         context.drawText(textRenderer, Text.literal(right),
-                width - rw - 6, height - 14, footColor, false);
-
-        String center = "fabric";
-        int cw = textRenderer.getWidth(center);
-        context.drawText(textRenderer, Text.literal(center),
-                width / 2 - cw / 2, height - 14, footColor, false);
+                width - rw - 6, height - 14, color, false);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2;
+            int startY = height / 2 - (LABELS.length * (BTN_HEIGHT + BTN_GAP)) / 2 + 10;
             int cx = width / 2 - BTN_WIDTH / 2;
 
             for (int i = 0; i < 4; i++) {
