@@ -4,7 +4,6 @@ import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -20,8 +19,6 @@ public class ClickGuiScreen extends Screen {
 
     private static final Identifier CUSTOM_FONT =
             Identifier.of("pathdlc_digger", "clickgui");
-    private static final Identifier BACKGROUND =
-            Identifier.of("pathdlc_digger", "textures/gui/background.png");
 
     private static final int SETTINGS_WIDTH = 160;
     private static final int SETTINGS_ROW = 20;
@@ -34,8 +31,6 @@ public class ClickGuiScreen extends Screen {
     private float singlePanelX = 10;
     private float singlePanelY = 30;
 
-    private float openProgress;
-
     public ClickGuiScreen() {
         super(Text.literal("ClickGUI"));
     }
@@ -43,7 +38,6 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        openProgress = 0f;
     }
 
     public void initCategories(
@@ -98,16 +92,9 @@ public class ClickGuiScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         LiquidGlassRenderer.captureAndBlur();
 
-        openProgress += (1.0f - openProgress) * 0.15f;
-        if (openProgress > 0.99f) openProgress = 1.0f;
-
         for (Category cat : categories) {
             cat.updateExpandProgress();
         }
-
-        renderBackground(context);
-
-        renderTitle(context);
 
         if (GuiSettings.getLayout() == GuiSettings.Layout.COLUMNS) {
             renderColumnsLayout(context, mouseX, mouseY);
@@ -118,32 +105,6 @@ public class ClickGuiScreen extends Screen {
         renderSettingsPanel(context, mouseX, mouseY);
 
         super.render(context, mouseX, mouseY, delta);
-    }
-
-    // ── Background ─────────────────────────────────────────
-
-    private void renderBackground(DrawContext context) {
-        int alpha = (int) (180 * openProgress);
-        int bgColor = (alpha << 24) | 0x0A0A14;
-        context.fill(0, 0, width, height, bgColor);
-
-        context.drawTexture(RenderLayer::getGuiTextured, BACKGROUND,
-                0, 0, 0, 0, width, height, width, height);
-
-        int overlayAlpha = (int) (200 * openProgress);
-        int overlayColor = (overlayAlpha << 24) | 0x0A0A14;
-        context.fill(0, 0, width, height, overlayColor);
-    }
-
-    private void renderTitle(DrawContext context) {
-        GuiSettings.AccentColor accent = GuiSettings.getAccentColor();
-        String title = "PathDLC";
-        int tw = textRenderer.getWidth(styledText(title));
-        drawStyledText(context, title, width / 2 - tw / 2, 8, accent.textColor);
-
-        String sub = countEnabled() + "/" + countTotal() + " modules active";
-        int sw = textRenderer.getWidth(styledText(sub));
-        drawStyledText(context, sub, width / 2 - sw / 2, 19, 0xFF888888);
     }
 
     // ── Columns layout ─────────────────────────────────────
@@ -306,7 +267,7 @@ public class ClickGuiScreen extends Screen {
 
     private void renderSettingsPanel(DrawContext context, int mouseX, int mouseY) {
         float sx = settingsX();
-        float sy = 34;
+        float sy = 30;
         int rows = 7;
         int panelH = HEADER_HEIGHT + 1 + rows * SETTINGS_ROW + 6;
 
@@ -462,7 +423,7 @@ public class ClickGuiScreen extends Screen {
 
     private boolean handleSettingsClick(double mouseX, double mouseY) {
         float sx = settingsX();
-        float sy = 34;
+        float sy = 30;
 
         if (mouseX < sx || mouseX > sx + SETTINGS_WIDTH) {
             return false;

@@ -5,7 +5,8 @@
   "client": [
     "FogMixin",
     "HitEffectsMixin",
-    "AspectRatioMixin"
+    "AspectRatioMixin",
+    "TitleScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
