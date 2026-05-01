@@ -1,10 +1,8 @@
 package com.pathdlc.digger.gui;
 
-import com.pathdlc.digger.render.HitEffectsRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -166,10 +164,7 @@ public class ClickGuiScreen extends Screen {
                 float btnY = catY + HEADER_HEIGHT + 1 + index * BUTTON_HEIGHT;
                 Module mod = btn.getModule();
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                context.drawTexture(RenderLayer::getGuiTextured,
-                        mod.getIcon(), (int) (catX + 3),
-                        (int) (btnY + 1), 0, 0, 16, 16, 16, 16);
-                drawStyledText(context, mod.getName(), (int) (catX + 21),
+                drawStyledText(context, mod.getName(), (int) (catX + 8),
                         (int) (btnY + 5), textColor);
                 index++;
             }
@@ -230,11 +225,8 @@ public class ClickGuiScreen extends Screen {
                 }
 
                 int textColor = mod.isEnabled() ? accent.textColor : 0xFFCCCCCC;
-                context.drawTexture(RenderLayer::getGuiTextured,
-                        mod.getIcon(), (int) (px + 14),
-                        (int) (rowY + 1), 0, 0, 16, 16, 16, 16);
                 drawStyledText(context, mod.getName(),
-                        (int) (px + 32), (int) (rowY + 5), textColor);
+                        (int) (px + 14), (int) (rowY + 5), textColor);
 
                 String status = mod.isEnabled() ? "ON" : "OFF";
                 int statusColor = mod.isEnabled() ? accent.textColor : 0xFF666666;

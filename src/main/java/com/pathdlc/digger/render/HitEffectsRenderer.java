@@ -52,7 +52,7 @@ public final class HitEffectsRenderer {
                 context.drawTexture(
                         RenderLayer::getGuiTextured,
                         HIT_STARS,
-                        (int) s.x - size / 2, (int) s.y - size / 2,
+                        (int) s.x - FRAME_SIZE / 2, (int) s.y - FRAME_SIZE / 2,
                         u, 0,
                         FRAME_SIZE, FRAME_SIZE,
                         SHEET_WIDTH, SHEET_HEIGHT
