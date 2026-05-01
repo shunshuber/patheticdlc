@@ -8,9 +8,12 @@ import com.pathdlc.digger.clan.ClanRedstoneBot;
 import com.pathdlc.digger.command.DotCommandHandler;
 import com.pathdlc.digger.farm.FarmCommandHandler;
 import com.pathdlc.digger.farm.FarmManager;
+import com.pathdlc.digger.funtime.AutoBuyBot;
+import com.pathdlc.digger.funtime.AutoCraftBot;
 import com.pathdlc.digger.funtime.AutoFarmBot;
 import com.pathdlc.digger.funtime.AutoFishBot;
 import com.pathdlc.digger.funtime.AutoMineBot;
+import com.pathdlc.digger.funtime.AutoSellBot;
 import com.pathdlc.digger.funtime.BaseFinderBot;
 import com.pathdlc.digger.gui.ClickGuiScreen;
 import com.pathdlc.digger.gui.ModuleManager;
@@ -47,6 +50,9 @@ public class PathDlcDiggerClient implements ClientModInitializer {
     private static final BaseFinderBot BASE_FINDER = new BaseFinderBot();
     private static final AutoFarmBot AUTO_FARM = new AutoFarmBot();
     private static final AutoFishBot AUTO_FISH = new AutoFishBot();
+    private static final AutoCraftBot AUTO_CRAFT = new AutoCraftBot();
+    private static final AutoSellBot AUTO_SELL = new AutoSellBot();
+    private static final AutoBuyBot AUTO_BUY = new AutoBuyBot();
 
     private static final DotCommandHandler COMMANDS = new DotCommandHandler(SELECTION, DIGGER, BARITONE);
     private static final FarmCommandHandler FARM_COMMANDS = new FarmCommandHandler(FARMS);
@@ -94,7 +100,13 @@ public class PathDlcDiggerClient implements ClientModInitializer {
                             () -> AUTO_FARM.start(),
                             () -> AUTO_FARM.stop(),
                             () -> AUTO_FISH.start(),
-                            () -> AUTO_FISH.stop()
+                            () -> AUTO_FISH.stop(),
+                            () -> AUTO_CRAFT.start(),
+                            () -> AUTO_CRAFT.stop(),
+                            () -> AUTO_SELL.start(),
+                            () -> AUTO_SELL.stop(),
+                            () -> AUTO_BUY.start(),
+                            () -> AUTO_BUY.stop()
                     );
                 }
                 client.setScreen(clickGui);
@@ -109,6 +121,9 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             BASE_FINDER.tick(client);
             AUTO_FARM.tick(client);
             AUTO_FISH.tick(client);
+            AUTO_CRAFT.tick(client);
+            AUTO_SELL.tick(client);
+            AUTO_BUY.tick(client);
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {

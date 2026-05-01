@@ -51,7 +51,10 @@ public class ClickGuiScreen extends Screen {
             Runnable autoMineOn, Runnable autoMineOff,
             Runnable baseFinderOn, Runnable baseFinderOff,
             Runnable autoFarmOn, Runnable autoFarmOff,
-            Runnable autoFishOn, Runnable autoFishOff) {
+            Runnable autoFishOn, Runnable autoFishOff,
+            Runnable autoCraftOn, Runnable autoCraftOff,
+            Runnable autoSellOn, Runnable autoSellOff,
+            Runnable autoBuyOn, Runnable autoBuyOff) {
         if (!categories.isEmpty()) return;
 
         Module apple = new Module("Apple", appleOn, appleOff);
@@ -114,6 +117,23 @@ public class ClickGuiScreen extends Screen {
         render.addModule(blockEsp);
         render.addModule(motionBlur);
         categories.add(render);
+
+        Module autoCraft = new Module("AutoCraft", autoCraftOn, autoCraftOff);
+        autoCraft.addSetting(ModuleSetting.choice("Recipe",
+                new String[]{"Planks","Sticks","Torches","Bread","Golden Apple"}, 0));
+        Module autoSell = new Module("AutoSell", autoSellOn, autoSellOff);
+        autoSell.addSetting(ModuleSetting.choice("Mode",
+                new String[]{"Buyer","Junk Only","Sell All"}, 0));
+        autoSell.addSetting(ModuleSetting.slider("Interval", 30f, 10f, 120f, 5f));
+        Module autoBuy = new Module("AutoBuy", autoBuyOn, autoBuyOff);
+        autoBuy.addSetting(ModuleSetting.choice("Item",
+                new String[]{"Food","Blocks","Tools","Weapons","Potions"}, 0));
+        autoBuy.addSetting(ModuleSetting.slider("Interval", 60f, 10f, 300f, 10f));
+        Category funtime = new Category("FunTime", 0, 0);
+        funtime.addModule(autoCraft);
+        funtime.addModule(autoSell);
+        funtime.addModule(autoBuy);
+        categories.add(funtime);
 
         tabHover = new float[categories.size()];
 
