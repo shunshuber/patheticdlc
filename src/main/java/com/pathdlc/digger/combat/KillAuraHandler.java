@@ -18,11 +18,13 @@ import net.minecraft.util.math.Vec3d;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class KillAuraHandler {
     private static LivingEntity currentTarget;
-    private static int attackTimer;
     private static int switchTimer;
+    private static int nextAttackDelay;
+    private static int ticksSinceAttack;
 
     public static void tick(MinecraftClient client) {
         if (!ModuleManager.isEnabled("KillAura")) {
@@ -63,34 +65,31 @@ public final class KillAuraHandler {
             switchTimer = 0;
         }
 
-        attackTimer++;
+        ticksSinceAttack++;
 
-        boolean cooldownReady = player.getAttackCooldownProgress(0) >= 0.9f;
+        if (player.getAttackCooldownProgress(0) < 1.0f) return;
+
+        if (ticksSinceAttack < nextAttackDelay) return;
 
         if (critOnly) {
             boolean falling = !player.isOnGround() && player.getVelocity().y < 0
                     && player.fallDistance > 0.0f;
-            if (!falling) {
-                if (player.isOnGround() && cooldownReady && attackTimer > 2) {
-                    player.jump();
-                }
-                return;
-            }
+            if (!falling) return;
         }
 
-        if (cooldownReady && attackTimer >= 1) {
-            float[] angles = getRotation(player, currentTarget);
+        float[] angles = getRotation(player, currentTarget);
 
-            player.networkHandler.sendPacket(
-                    new PlayerMoveC2SPacket.LookAndOnGround(
-                            angles[0], angles[1],
-                            player.isOnGround(),
-                            player.horizontalCollision));
+        player.networkHandler.sendPacket(
+                new PlayerMoveC2SPacket.LookAndOnGround(
+                        angles[0], angles[1],
+                        player.isOnGround(),
+                        player.horizontalCollision));
 
-            client.interactionManager.attackEntity(player, currentTarget);
-            player.swingHand(Hand.MAIN_HAND);
-            attackTimer = 0;
-        }
+        client.interactionManager.attackEntity(player, currentTarget);
+        player.swingHand(Hand.MAIN_HAND);
+
+        ticksSinceAttack = 0;
+        nextAttackDelay = ThreadLocalRandom.current().nextInt(0, 3);
     }
 
     private static float[] getRotation(ClientPlayerEntity player,
@@ -139,9 +138,9 @@ public final class KillAuraHandler {
         }
 
         result.sort(Comparator.comparingDouble(e -> {
-            double dist = player.distanceTo(e);
+            double d = player.distanceTo(e);
             double healthPenalty = e.getHealth() / 20.0 * 0.5;
-            return dist + healthPenalty;
+            return d + healthPenalty;
         }));
 
         return result;
