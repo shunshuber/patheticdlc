@@ -6,37 +6,48 @@ import com.pathdlc.digger.gui.Module;
 import com.pathdlc.digger.util.Chat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.text.Text;
+
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * AutoBuy — automatically clicks/buys items in server shop GUIs.
- * When a chest-based shop menu opens (e.g. /shop, /buyer on FunTime),
- * it scans the GUI slots and clicks on non-empty items to buy them.
- * Configurable delay between clicks and auto-close.
+ * AutoBuy — auction house sniper for FunTime (/ah).
+ * Periodically opens /ah, scans items, and buys anything
+ * matching the target item name below the max price.
  */
 public class AutoBuyBot {
     private boolean running;
-    private int clickDelay;
-    private int currentSlot;
-    private boolean waitingForGui;
-    private boolean processingGui;
+    private int tickCounter;
+    private int scanDelay;
+    private boolean guiOpened;
+    private boolean scanning;
+    private int scanSlot;
+
+    private static final Pattern PRICE_PATTERN = Pattern.compile(
+            "(?:Цена|Price|Стоимость|Cost)[:\\s]*([\\d,.]+)");
+    private static final Pattern PRICE_NUMBER = Pattern.compile(
+            "([\\d]+[.,]?[\\d]*)");
 
     public void start() {
         running = true;
-        clickDelay = 0;
-        currentSlot = 0;
-        waitingForGui = true;
-        processingGui = false;
-        Chat.info("AutoBuy ON - open a shop GUI to start buying");
+        tickCounter = 0;
+        scanDelay = 0;
+        guiOpened = false;
+        scanning = false;
+        scanSlot = 0;
+        Chat.info("AutoBuy ON - sniping /ah auction");
     }
 
     public void stop() {
         running = false;
-        waitingForGui = false;
-        processingGui = false;
+        guiOpened = false;
+        scanning = false;
         Chat.info("AutoBuy OFF");
     }
 
@@ -52,78 +63,138 @@ public class AutoBuyBot {
         Module mod = ModuleManager.get("AutoBuy");
         if (mod == null) return;
 
-        ModuleSetting delaySetting = mod.getSetting("Delay");
-        int delayTicks = delaySetting != null ? (int) delaySetting.getFloat() : 2;
+        ModuleSetting intervalSetting = mod.getSetting("Interval");
+        int interval = intervalSetting != null
+                ? (int)(intervalSetting.getFloat() * 20) : 200;
 
-        if (!(client.currentScreen instanceof GenericContainerScreen containerScreen)) {
-            if (processingGui) {
-                processingGui = false;
-                currentSlot = 0;
+        ModuleSetting maxPriceSetting = mod.getSetting("Max Price");
+        int maxPrice = maxPriceSetting != null
+                ? (int) maxPriceSetting.getFloat() : 10000;
+
+        ModuleSetting itemSetting = mod.getSetting("Item");
+        int itemIndex = itemSetting != null ? itemSetting.getChoiceIndex() : 0;
+        String targetName = getTargetName(itemIndex).toLowerCase();
+
+        if (client.currentScreen instanceof GenericContainerScreen containerScreen) {
+            GenericContainerScreenHandler handler = containerScreen.getScreenHandler();
+            int containerSlots = handler.getRows() * 9;
+
+            if (scanDelay > 0) {
+                scanDelay--;
+                return;
             }
-            return;
-        }
 
-        GenericContainerScreenHandler handler = containerScreen.getScreenHandler();
-        int containerSlots = handler.getRows() * 9;
+            if (!scanning) {
+                scanning = true;
+                scanSlot = 0;
+                scanDelay = 5;
+                return;
+            }
 
-        if (!processingGui) {
-            processingGui = true;
-            currentSlot = 0;
-            clickDelay = 5;
-            return;
-        }
+            while (scanSlot < containerSlots) {
+                ItemStack stack = handler.getSlot(scanSlot).getStack();
 
-        if (clickDelay > 0) {
-            clickDelay--;
-            return;
-        }
+                if (!stack.isEmpty()) {
+                    String itemName = stack.getName().getString().toLowerCase();
+                    int price = extractPrice(stack);
 
-        ModuleSetting modeSetting = mod.getSetting("Mode");
-        int mode = modeSetting != null ? modeSetting.getChoiceIndex() : 0;
-
-        while (currentSlot < containerSlots) {
-            Slot slot = handler.getSlot(currentSlot);
-            ItemStack stack = slot.getStack();
-
-            if (!stack.isEmpty()) {
-                boolean shouldClick = switch (mode) {
-                    case 0 -> true;
-                    case 1 -> {
-                        String name = stack.getName().getString().toLowerCase();
-                        yield !name.contains("back") && !name.contains("close")
-                                && !name.contains("return") && !name.contains("exit")
-                                && !name.contains("назад") && !name.contains("закрыть")
-                                && !name.contains("выход");
+                    if (itemName.contains(targetName) && price > 0 && price <= maxPrice) {
+                        client.interactionManager.clickSlot(
+                                handler.syncId, scanSlot,
+                                0, SlotActionType.PICKUP, client.player);
+                        Chat.info("AutoBuy: bought \"" + stack.getName().getString()
+                                + "\" for " + price);
+                        scanSlot++;
+                        scanDelay = 3;
+                        return;
                     }
-                    case 2 -> {
-                        String name = stack.getName().getString().toLowerCase();
-                        yield name.contains("buy") || name.contains("купить")
-                                || name.contains("purchase") || name.contains("trade")
-                                || name.contains("торг");
-                    }
-                    default -> true;
-                };
+                }
+                scanSlot++;
+            }
 
-                if (shouldClick) {
-                    client.interactionManager.clickSlot(
-                            handler.syncId, currentSlot,
-                            0, SlotActionType.PICKUP, client.player);
-                    currentSlot++;
-                    clickDelay = delayTicks;
-                    return;
+            scanning = false;
+            guiOpened = false;
+            client.player.closeHandledScreen();
+            return;
+        }
+
+        guiOpened = false;
+        scanning = false;
+
+        tickCounter++;
+        if (tickCounter >= interval) {
+            tickCounter = 0;
+
+            ModuleSetting searchSetting = mod.getSetting("Search");
+            int searchMode = searchSetting != null ? searchSetting.getChoiceIndex() : 0;
+
+            if (searchMode == 1) {
+                String searchTarget = getTargetName(itemIndex);
+                client.player.networkHandler.sendChatMessage("/ah search " + searchTarget);
+            } else {
+                client.player.networkHandler.sendChatMessage("/ah");
+            }
+            guiOpened = true;
+        }
+    }
+
+    private int extractPrice(ItemStack stack) {
+        List<Text> lore = List.of();
+
+        var loreComponent = stack.get(DataComponentTypes.LORE);
+        if (loreComponent != null) {
+            lore = loreComponent.lines();
+        }
+
+        for (Text line : lore) {
+            String text = line.getString();
+            Matcher matcher = PRICE_PATTERN.matcher(text);
+            if (matcher.find()) {
+                return parseNumber(matcher.group(1));
+            }
+        }
+
+        for (Text line : lore) {
+            String text = line.getString();
+            if (text.contains("$") || text.contains("монет")
+                    || text.contains("coin") || text.contains("руб")) {
+                Matcher numMatcher = PRICE_NUMBER.matcher(text);
+                if (numMatcher.find()) {
+                    return parseNumber(numMatcher.group(1));
                 }
             }
-            currentSlot++;
         }
 
-        ModuleSetting autoCloseSetting = mod.getSetting("AutoClose");
-        boolean autoClose = autoCloseSetting != null && autoCloseSetting.getBool();
-        if (autoClose) {
-            client.player.closeHandledScreen();
+        String name = stack.getName().getString();
+        Matcher nameMatcher = PRICE_PATTERN.matcher(name);
+        if (nameMatcher.find()) {
+            return parseNumber(nameMatcher.group(1));
         }
 
-        processingGui = false;
-        currentSlot = 0;
+        return -1;
+    }
+
+    private int parseNumber(String str) {
+        try {
+            String clean = str.replace(",", "").replace(".", "").trim();
+            return Integer.parseInt(clean);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private String getTargetName(int index) {
+        return switch (index) {
+            case 0 -> "diamond";
+            case 1 -> "emerald";
+            case 2 -> "netherite";
+            case 3 -> "enchanted golden apple";
+            case 4 -> "elytra";
+            case 5 -> "totem";
+            case 6 -> "shulker";
+            case 7 -> "beacon";
+            default -> "diamond";
+        };
     }
 
     public boolean isRunning() {
