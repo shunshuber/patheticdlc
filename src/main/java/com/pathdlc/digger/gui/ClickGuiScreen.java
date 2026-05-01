@@ -1,5 +1,6 @@
 package com.pathdlc.digger.gui;
 
+import com.pathdlc.digger.render.HitEffectsRenderer;
 import com.pathdlc.digger.render.LiquidGlassRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -74,11 +75,9 @@ public class ClickGuiScreen extends Screen {
         utility.addModule(aspectRatio);
         categories.add(utility);
 
-        Module overlay = new Module("Overlay");
         Module blockOverlay = new Module("BlockOverlay");
         Module blockEsp = new Module("BlockESP");
         Category render = new Category("Render", startX + spacing * 3, startY);
-        render.addModule(overlay);
         render.addModule(blockOverlay);
         render.addModule(blockEsp);
         categories.add(render);
@@ -258,7 +257,7 @@ public class ClickGuiScreen extends Screen {
     private void renderSettingsPanel(DrawContext context, int mouseX, int mouseY) {
         float sx = settingsX();
         float sy = 30;
-        int rows = 4;
+        int rows = 6;
         int panelH = HEADER_HEIGHT + 1 + rows * SETTINGS_ROW + 4;
 
         drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 8f, 0f, false);
@@ -284,6 +283,14 @@ public class ClickGuiScreen extends Screen {
         drawSettingsRow(context, sx, rowY, "Font",
                 GuiSettings.isCustomFontEnabled() ? "Comfortaa" : "Default",
                 0xFFFFFFFF, mouseX, mouseY);
+        rowY += SETTINGS_ROW;
+
+        drawSettingsRow(context, sx, rowY, "Fog Color",
+                FogSettings.getColor().label, 0xFFFFFFFF, mouseX, mouseY);
+        rowY += SETTINGS_ROW;
+
+        drawSettingsRow(context, sx, rowY, "Fog Density",
+                FogSettings.getDensity().label, 0xFFFFFFFF, mouseX, mouseY);
         rowY += SETTINGS_ROW;
 
         String modCount = countEnabled() + "/" + countTotal() + " active";
@@ -422,6 +429,18 @@ public class ClickGuiScreen extends Screen {
 
         if (mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW) {
             GuiSettings.toggleCustomFont();
+            return true;
+        }
+        rowY += SETTINGS_ROW;
+
+        if (mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW) {
+            FogSettings.cycleColor();
+            return true;
+        }
+        rowY += SETTINGS_ROW;
+
+        if (mouseY >= rowY && mouseY <= rowY + SETTINGS_ROW) {
+            FogSettings.cycleDensity();
             return true;
         }
 

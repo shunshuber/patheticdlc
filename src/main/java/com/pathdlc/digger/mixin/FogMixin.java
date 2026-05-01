@@ -1,5 +1,6 @@
 package com.pathdlc.digger.mixin;
 
+import com.pathdlc.digger.gui.FogSettings;
 import com.pathdlc.digger.gui.ModuleManager;
 import net.minecraft.client.render.BackgroundRenderer;
 import net.minecraft.client.render.Camera;
@@ -21,13 +22,17 @@ public abstract class FogMixin {
                                     boolean thickFog,
                                     float tickDelta,
                                     CallbackInfoReturnable<Fog> cir) {
-        if (ModuleManager.isEnabled("Fog")) {
-            cir.setReturnValue(new Fog(
-                    viewDistance * 4f,
-                    viewDistance * 8f,
-                    FogShape.SPHERE,
-                    color.x, color.y, color.z, color.w
-            ));
-        }
+        if (!ModuleManager.isEnabled("Fog")) return;
+
+        FogSettings.FogColor fogColor = FogSettings.getColor();
+        FogSettings.FogDensity density = FogSettings.getDensity();
+
+        float start = viewDistance * density.startMul;
+        float end = viewDistance * density.endMul;
+
+        cir.setReturnValue(new Fog(
+                start, end, FogShape.SPHERE,
+                fogColor.r, fogColor.g, fogColor.b, 1.0f
+        ));
     }
 }
