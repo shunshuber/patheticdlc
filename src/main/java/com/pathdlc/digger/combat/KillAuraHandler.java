@@ -10,6 +10,8 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.c2s.play.HandSwingC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
@@ -34,7 +36,7 @@ public final class KillAuraHandler {
 
         ClientPlayerEntity player = client.player;
         if (player == null || client.world == null) return;
-        if (client.interactionManager == null) return;
+        if (player.networkHandler == null) return;
 
         Module mod = ModuleManager.get("KillAura");
         if (mod == null) return;
@@ -80,16 +82,29 @@ public final class KillAuraHandler {
         float[] angles = getRotation(player, currentTarget);
 
         player.networkHandler.sendPacket(
-                new PlayerMoveC2SPacket.LookAndOnGround(
+                new PlayerMoveC2SPacket.Full(
+                        player.getX(), player.getY(), player.getZ(),
                         angles[0], angles[1],
                         player.isOnGround(),
                         player.horizontalCollision));
 
-        client.interactionManager.attackEntity(player, currentTarget);
-        player.swingHand(Hand.MAIN_HAND);
+        player.networkHandler.sendPacket(
+                PlayerInteractEntityC2SPacket.attack(
+                        currentTarget, player.isSneaking()));
+
+        player.networkHandler.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+
+        player.resetLastAttackedTicks();
+
+        player.networkHandler.sendPacket(
+                new PlayerMoveC2SPacket.Full(
+                        player.getX(), player.getY(), player.getZ(),
+                        player.getYaw(), player.getPitch(),
+                        player.isOnGround(),
+                        player.horizontalCollision));
 
         ticksSinceAttack = 0;
-        nextAttackDelay = ThreadLocalRandom.current().nextInt(0, 3);
+        nextAttackDelay = ThreadLocalRandom.current().nextInt(0, 2);
     }
 
     private static float[] getRotation(ClientPlayerEntity player,
