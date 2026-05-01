@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "com.pathdlc.digger.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "FogMixin",
+    "HitEffectsMixin",
+    "AspectRatioMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

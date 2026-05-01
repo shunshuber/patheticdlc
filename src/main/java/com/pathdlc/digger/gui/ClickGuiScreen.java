@@ -38,37 +38,56 @@ public class ClickGuiScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        if (categories.isEmpty()) {
-            initCategories();
-        }
     }
 
-    private void initCategories() {
+    public void initCategories(
+            Runnable appleOn, Runnable appleOff,
+            Runnable digOn, Runnable digOff,
+            Runnable wardenOn, Runnable wardenOff,
+            Runnable clanOn, Runnable clanOff) {
+        if (!categories.isEmpty()) return;
+
         float startX = 10;
         float startY = 30;
         float spacing = 130;
 
+        Module apple = new Module("Apple", appleOn, appleOff);
+        Module dig = new Module("Dig", digOn, digOff);
         Category farm = new Category("Farm", startX, startY);
-        farm.addModule(new Module("Apple"));
-        farm.addModule(new Module("Dig"));
+        farm.addModule(apple);
+        farm.addModule(dig);
         categories.add(farm);
 
+        Module warden = new Module("Warden", wardenOn, wardenOff);
+        Module fog = new Module("Fog");
         Category world = new Category("World", startX + spacing, startY);
-        world.addModule(new Module("Warden"));
-        world.addModule(new Module("Fog"));
+        world.addModule(warden);
+        world.addModule(fog);
         categories.add(world);
 
+        Module clan = new Module("Clan", clanOn, clanOff);
+        Module hitEffects = new Module("HitEffects");
+        Module aspectRatio = new Module("AspectRatio");
         Category utility = new Category("Utility", startX + spacing * 2, startY);
-        utility.addModule(new Module("Clan"));
-        utility.addModule(new Module("HitEffects"));
-        utility.addModule(new Module("AspectRatio"));
+        utility.addModule(clan);
+        utility.addModule(hitEffects);
+        utility.addModule(aspectRatio);
         categories.add(utility);
 
+        Module overlay = new Module("Overlay");
+        Module blockOverlay = new Module("BlockOverlay");
+        Module blockEsp = new Module("BlockESP");
         Category render = new Category("Render", startX + spacing * 3, startY);
-        render.addModule(new Module("Overlay"));
-        render.addModule(new Module("BlockOverlay"));
-        render.addModule(new Module("BlockESP"));
+        render.addModule(overlay);
+        render.addModule(blockOverlay);
+        render.addModule(blockEsp);
         categories.add(render);
+
+        for (Category cat : categories) {
+            for (ModuleButton btn : cat.getModules()) {
+                ModuleManager.register(btn.getModule());
+            }
+        }
     }
 
     @Override
@@ -134,7 +153,7 @@ public class ClickGuiScreen extends Screen {
         drawStyledText(context, name, (int) (catX + 60 - textWidth / 2),
                 (int) (catY + 6), 0xFFFFFFFF);
 
-        String arrow = cat.isCollapsed() ? ">" : "v";
+        String arrow = cat.isCollapsed() ? ">" : "V";
         drawStyledText(context, arrow, (int) (catX + 105), (int) (catY + 6),
                 0xFFFFFFFF);
 
@@ -192,7 +211,7 @@ public class ClickGuiScreen extends Screen {
                 rowY += BUTTON_HEIGHT;
             }
 
-            drawStyledText(context, "- " + cat.getName(),
+            drawStyledText(context, cat.getName(),
                     (int) (px + 8), (int) (rowY + 5), 0xFFAAAAAA);
             rowY += BUTTON_HEIGHT;
 
@@ -244,7 +263,7 @@ public class ClickGuiScreen extends Screen {
 
         drawPanel(context, sx, sy, SETTINGS_WIDTH, panelH, 8f, 0f, false);
 
-        drawStyledText(context, "[*] Settings", (int) (sx + 10),
+        drawStyledText(context, "Settings", (int) (sx + 10),
                 (int) (sy + 6), 0xFFFFFFFF);
 
         context.fill((int) sx, (int) (sy + HEADER_HEIGHT),

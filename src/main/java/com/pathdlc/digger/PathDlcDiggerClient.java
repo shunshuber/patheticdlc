@@ -8,6 +8,9 @@ import com.pathdlc.digger.command.DotCommandHandler;
 import com.pathdlc.digger.farm.FarmCommandHandler;
 import com.pathdlc.digger.farm.FarmManager;
 import com.pathdlc.digger.gui.ClickGuiScreen;
+import com.pathdlc.digger.gui.ModuleManager;
+import com.pathdlc.digger.render.BlockESPRenderer;
+import com.pathdlc.digger.render.BlockOverlayRenderer;
 import com.pathdlc.digger.render.SelectionRenderer;
 import com.pathdlc.digger.selection.SelectionManager;
 import com.pathdlc.digger.util.Chat;
@@ -64,6 +67,16 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             if (CLICK_GUI_KEY.wasPressed()) {
                 if (clickGui == null) {
                     clickGui = new ClickGuiScreen();
+                    clickGui.initCategories(
+                            () -> FARMS.apple().start(),
+                            () -> FARMS.apple().stop(),
+                            () -> DIGGER.startDigAndFill(),
+                            () -> DIGGER.stop(),
+                            () -> WARDEN.start(),
+                            () -> WARDEN.stop(),
+                            () -> CLAN.start(),
+                            () -> CLAN.stop()
+                    );
                 }
                 client.setScreen(clickGui);
             }
@@ -74,7 +87,15 @@ public class PathDlcDiggerClient implements ClientModInitializer {
             WARDEN.tick(client);
         });
 
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> SelectionRenderer.render(context, SELECTION));
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+            SelectionRenderer.render(context, SELECTION);
+            if (ModuleManager.isEnabled("BlockOverlay")) {
+                BlockOverlayRenderer.render(context);
+            }
+            if (ModuleManager.isEnabled("BlockESP")) {
+                BlockESPRenderer.render(context);
+            }
+        });
 
         Chat.later("PathDLC loaded. Commands: .pos, .fill, .dig baritone, .apple, .clan, .warden");
     }

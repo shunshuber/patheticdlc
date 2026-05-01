@@ -54,7 +54,7 @@ public class GuiSettings {
 
     private static Layout layout = Layout.COLUMNS;
     private static AccentColor accentColor = AccentColor.BLUE;
-    private static boolean customFontEnabled = true;
+    private static boolean customFontEnabled = false;
 
     public static Layout getLayout() {
         return layout;
